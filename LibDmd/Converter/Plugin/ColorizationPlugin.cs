@@ -101,7 +101,9 @@ namespace LibDmd.Converter.Plugin
 			Logger.Info($"[plugin] Successfully opened colorizer plugin at {pluginConfig.Path}");
 
 			// configure plugin
-			_setAltColorPath(altcolorPath);
+			if (altcolorPath != null) {
+				_setAltColorPath(altcolorPath);
+			}
 			PMoptions options = new PMoptions { Red = defaultColor.R, Green = defaultColor.G, Blue = defaultColor.B, Colorize = colorize ? 1 : 0 };
 			IntPtr optionsPtr = Marshal.AllocHGlobal(Marshal.SizeOf(options));
 			Marshal.StructureToPtr(options, optionsPtr, false);
