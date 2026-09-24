@@ -11,8 +11,9 @@ and the key, and that section isn't used.
 | key | required | values | meaning |
 | --- | --- | --- | --- |
 | `enabled` | no; off unless `true` | `true` or `false` | Whether the section is used. |
-| `port` | always | a port name, such as `COM4`, or `usb:` and a USB vendor and product ID in hex, such as `usb:2E8A:000A` | The serial port of the display. See [SERIAL.md](SERIAL.md). |
-| `baudrate` | always | a positive integer, such as `921600` | The baud rate. USB CDC devices ignore it. |
+| `port` | unless `pipe` is set | a port name, such as `COM4`, or `usb:` and a USB vendor and product ID in hex, such as `usb:2E8A:000A` | The serial port of the display. See [SERIAL.md](SERIAL.md). |
+| `baudrate` | when `port` is set | a positive integer, such as `921600` | The baud rate. USB CDC devices ignore it. |
+| `pipe` | unless `port` is set | a pipe name, such as `dmd-extensions` | The named pipe the display created. See [NAMED-PIPE.md](NAMED-PIPE.md). |
 | `layout` | always | `startmarker`, `length`, `type`, `panel`, `content` and `endmarker`, each at most once, in order | The fields of each message. `content` is required. |
 | `startmarker` | when `layout` lists it | 1 or more bytes in hex, such as `AA 55` | The start marker field. |
 | `length` | when `layout` lists it | `u32le`, `u16le` or `u16be` | How the length field is written. |

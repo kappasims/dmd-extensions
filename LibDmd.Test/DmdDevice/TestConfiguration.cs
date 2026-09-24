@@ -139,6 +139,7 @@ namespace LibDmd.Test
 		public string Name { get; set; } = "deviceneutral";
 		public bool Enabled { get; set; }
 		public DeviceNeutralSerialPort Port { get; set; }
+		public string Pipe { get; set; }
 		public int BaudRate { get; set; }
 		public DeviceNeutralMessageField[] Layout { get; set; }
 		public byte[] StartMarker { get; set; }
