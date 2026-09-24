@@ -378,6 +378,7 @@ namespace LibDmd.DmdDevice
 		public override string Name { get; }
 		public bool Enabled => GetBoolean("enabled", false);
 		public string Port => GetString("port", null);
+		public string Pipe => GetString("pipe", null);
 		public int BaudRate => GetInt("baudrate", DeviceNeutralSerialTransport.DefaultBaudRate);
 		public byte[] StartMarker => GetHexBytes("startmarker", DeviceNeutralMessageWriter.DefaultStartMarker);
 		public int Panel => GetInt("panel", 0);

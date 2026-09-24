@@ -101,6 +101,7 @@ namespace LibDmd.DmdDevice
 		string Name { get; }
 		bool Enabled { get; }
 		string Port { get; }
+		string Pipe { get; }
 		int BaudRate { get; }
 		byte[] StartMarker { get; }
 		int Panel { get; }

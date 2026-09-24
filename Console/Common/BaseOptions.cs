@@ -144,6 +144,9 @@ namespace DmdExt.Common
 		[Option("--pac-key", HelpText = "Key to decrypt PAC files, in hex.")]
 		public string PacKey { get; set; } = null;
 
+		[Option("deviceneutral-pipe", HelpText = "Named pipe of the display for the deviceneutral destination, used instead of --port. Example: \"deviceneutral\".")]
+		public string DeviceNeutralPipe { get; set; } = null;
+
 		[Option("zedmd-debug", HelpText = "If set, ZeDMD will show its debug informations. Default: false.")]
 		public bool Debug { get; set; } = false;
 
@@ -485,7 +488,8 @@ namespace DmdExt.Common
 
 		public string Name => "deviceneutral";
 		public bool Enabled => _options.Destination == BaseOptions.DestinationType.DeviceNeutral;
-		public string Port => _options.Port;
+		public string Port => _options.DeviceNeutralPipe == null ? _options.Port : null;
+		public string Pipe => _options.DeviceNeutralPipe;
 		public int BaudRate => DeviceNeutralSerialTransport.DefaultBaudRate;
 		public byte[] StartMarker => DeviceNeutralMessageWriter.DefaultStartMarker;
 		public int Panel => 0;

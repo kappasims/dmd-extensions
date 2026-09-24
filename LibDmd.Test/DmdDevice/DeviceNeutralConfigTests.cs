@@ -34,6 +34,17 @@ namespace LibDmd.Test
 		}
 
 		[TestCase]
+		public void Should_Read_Pipe()
+		{
+			var config = FromIni(@"
+				[deviceneutral]
+				pipe = deviceneutral");
+
+			config.Pipe.Should().Be("deviceneutral");
+			config.Port.Should().BeNull();
+		}
+
+		[TestCase]
 		public void Should_Default_Start_Marker_To_Dndp()
 		{
 			var config = FromIni("[deviceneutral]");

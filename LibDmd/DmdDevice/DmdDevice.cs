@@ -592,17 +592,21 @@ namespace LibDmd.DmdDevice
 				if (!config.Enabled) {
 					continue;
 				}
-				if (string.IsNullOrWhiteSpace(config.Port)) {
-					Logger.Warn("[{0}] Enabled but no port is set, skipping.", config.Name);
+				var hasPort = !string.IsNullOrWhiteSpace(config.Port);
+				var hasPipe = !string.IsNullOrWhiteSpace(config.Pipe);
+				if (hasPort == hasPipe) {
+					Logger.Warn("[{0}] Exactly one of port or pipe must be set, skipping.", config.Name);
 
-				} else if (config.BaudRate <= 0) {
+				} else if (hasPort && config.BaudRate <= 0) {
 					Logger.Warn("[{0}] Baud rate {1} must be greater than 0, skipping.", config.Name, config.BaudRate);
 
 				} else if (config.Panel < 0 || config.Panel > 255) {
 					Logger.Warn("[{0}] Panel {1} is out of range 0 to 255, skipping.", config.Name, config.Panel);
 
 				} else {
-					var transport = new DeviceNeutralSerialTransport(config.Port, config.BaudRate);
+					var transport = hasPipe
+						? (IDeviceNeutralTransport)new DeviceNeutralNamedPipeTransport(config.Pipe)
+						: new DeviceNeutralSerialTransport(config.Port, config.BaudRate);
 					var deviceNeutral = new DeviceNeutralDestination(transport, config.StartMarker, (byte)config.Panel);
 					renderers.Add(deviceNeutral);
 					Logger.Info("Added device-neutral renderer [{0}] on {1}.", config.Name, transport.Description);

@@ -191,11 +191,14 @@ namespace DmdExt.Common
 				if (!deviceNeutralConfig.Enabled) {
 					continue;
 				}
-				if (string.IsNullOrWhiteSpace(deviceNeutralConfig.Port)) {
-					Logger.Warn("[{0}] Enabled but no port is set, skipping. Set one with --port.", deviceNeutralConfig.Name);
+				var hasPipe = !string.IsNullOrWhiteSpace(deviceNeutralConfig.Pipe);
+				if (!hasPipe && string.IsNullOrWhiteSpace(deviceNeutralConfig.Port)) {
+					Logger.Warn("[{0}] Enabled but neither a port nor a pipe is set, skipping. Set one with --port or --deviceneutral-pipe.", deviceNeutralConfig.Name);
 
 				} else {
-					var transport = new DeviceNeutralSerialTransport(deviceNeutralConfig.Port, deviceNeutralConfig.BaudRate);
+					var transport = hasPipe
+						? (IDeviceNeutralTransport)new DeviceNeutralNamedPipeTransport(deviceNeutralConfig.Pipe)
+						: new DeviceNeutralSerialTransport(deviceNeutralConfig.Port, deviceNeutralConfig.BaudRate);
 					var deviceNeutral = new DeviceNeutralDestination(transport, deviceNeutralConfig.StartMarker, (byte)deviceNeutralConfig.Panel);
 					renderers.Add(deviceNeutral);
 					Logger.Info("Added device-neutral renderer [{0}] on {1}.", deviceNeutralConfig.Name, transport.Description);
