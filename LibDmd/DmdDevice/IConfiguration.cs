@@ -1,4 +1,5 @@
-﻿using System.Windows.Media;
+﻿using System.Collections.Generic;
+using System.Windows.Media;
 using LibDmd.Input;
 using LibDmd.Common;
 using LibDmd.Output.Virtual.AlphaNumeric;
@@ -20,6 +21,7 @@ namespace LibDmd.DmdDevice
 		IZeDMDWiFiConfig ZeDMDHDWiFi { get; }
 		IPin2DmdConfig Pin2Dmd { get; }
 		IPixelcadeConfig Pixelcade { get; }
+		IReadOnlyList<IDeviceNeutralConfig> DeviceNeutralDestinations { get; }
 		IVideoConfig Video { get; }
 		IGifConfig Gif { get; }
 		IBitmapConfig Bitmap { get; }
@@ -92,6 +94,16 @@ namespace LibDmd.DmdDevice
 		bool Enabled { get; }
 		string Port { get; }
 		ColorMatrix ColorMatrix { get; }
+	}
+
+	public interface IDeviceNeutralConfig
+	{
+		string Name { get; }
+		bool Enabled { get; }
+		string Port { get; }
+		int BaudRate { get; }
+		byte[] StartMarker { get; }
+		int Panel { get; }
 	}
 
 	public interface IVirtualDmdConfig

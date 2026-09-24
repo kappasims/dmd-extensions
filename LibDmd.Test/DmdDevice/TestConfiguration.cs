@@ -1,4 +1,5 @@
-﻿using System.Windows.Media;
+﻿using System.Collections.Generic;
+using System.Windows.Media;
 using LibDmd.Common;
 using LibDmd.DmdDevice;
 using LibDmd.Input;
@@ -21,6 +22,7 @@ namespace LibDmd.Test
 		public IZeDMDWiFiConfig ZeDMDHDWiFi { get; set; } = new TestZeDMDWiFiConfig();
 		public IPin2DmdConfig Pin2Dmd { get; set; } = new TestPin2DmdConfig();
 		public IPixelcadeConfig Pixelcade { get; set; } = new TestPixelcadeConfig();
+		public IReadOnlyList<IDeviceNeutralConfig> DeviceNeutralDestinations { get; set; } = new IDeviceNeutralConfig[0];
 		public IVideoConfig Video { get; set; } = new TestVideoConfig();
 		public IGifConfig Gif { get; set; } = new TestGifConfig();
 		public IBitmapConfig Bitmap { get; set; } = new TestBitmapConfig();
@@ -128,6 +130,16 @@ namespace LibDmd.Test
 		public bool Enabled { get; set; }
 		public string Port { get; set; }
 		public ColorMatrix ColorMatrix { get; set; }
+	}
+
+	public class TestDeviceNeutralConfig : IDeviceNeutralConfig
+	{
+		public string Name { get; set; } = "deviceneutral";
+		public bool Enabled { get; set; }
+		public string Port { get; set; }
+		public int BaudRate { get; set; }
+		public byte[] StartMarker { get; set; }
+		public int Panel { get; set; }
 	}
 
 	public class TestVideoConfig : IVideoConfig

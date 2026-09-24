@@ -12,6 +12,7 @@ using IniParser;
 using IniParser.Model;
 using LibDmd.Common;
 using LibDmd.Input;
+using LibDmd.Output.DeviceNeutral;
 using LibDmd.Output.Virtual.AlphaNumeric;
 using LibDmd.Output.Virtual.Dmd;
 using NLog;
@@ -34,6 +35,7 @@ namespace LibDmd.DmdDevice
 		public IZeDMDWiFiConfig ZeDMDHDWiFi { get; private set; }
 		public IPin2DmdConfig Pin2Dmd { get; private set; }
 		public IPixelcadeConfig Pixelcade { get; private set; }
+		public IReadOnlyList<IDeviceNeutralConfig> DeviceNeutralDestinations { get; private set; }
 		public IVideoConfig Video { get; private set; }
 		public IGifConfig Gif { get; private set; }
 		public IBitmapConfig Bitmap { get; private set; }
@@ -143,6 +145,10 @@ namespace LibDmd.DmdDevice
 			ZeDMDHDWiFi = new ZeDMDHDWiFiConfig(_data, this);
 			Pin2Dmd = new Pin2DmdConfig(_data, this);
 			Pixelcade = new PixelcadeConfig(_data, this);
+			DeviceNeutralDestinations = _data.Sections
+				.Where(s => DeviceNeutralConfig.IsSection(s.SectionName))
+				.Select(s => (IDeviceNeutralConfig)new DeviceNeutralConfig(_data, this, s.SectionName))
+				.ToList();
 			Video = new VideoConfig(_data, this);
 			Gif = new GifConfig(_data, this);
 			Bitmap = new BitmapConfig(_data, this);
@@ -364,6 +370,47 @@ namespace LibDmd.DmdDevice
 		public bool AllowHdScaling => GetBoolean("scaletohd", true);
 		public PixelcadeConfig(IniData data, Configuration parent) : base(data, parent)
 		{
+		}
+	}
+
+	public class DeviceNeutralConfig : AbstractConfiguration, IDeviceNeutralConfig
+	{
+		public override string Name { get; }
+		public bool Enabled => GetBoolean("enabled", false);
+		public string Port => GetString("port", null);
+		public int BaudRate => GetInt("baudrate", DeviceNeutralSerialTransport.DefaultBaudRate);
+		public byte[] StartMarker => GetHexBytes("startmarker", DeviceNeutralMessageWriter.DefaultStartMarker);
+		public int Panel => GetInt("panel", 0);
+		public DeviceNeutralConfig(IniData data, Configuration parent, string name) : base(data, parent)
+		{
+			Name = name;
+		}
+
+		/// <summary>
+		/// Returns whether a section configures a device-neutral destination: <c>[deviceneutral]</c>, or
+		/// <c>[deviceneutral.</c> followed by a name for each additional display.
+		/// </summary>
+		public static bool IsSection(string name)
+		{
+			return string.Equals(name, "deviceneutral", StringComparison.OrdinalIgnoreCase)
+			       || name.StartsWith("deviceneutral.", StringComparison.OrdinalIgnoreCase);
+		}
+
+		private byte[] GetHexBytes(string key, byte[] fallback)
+		{
+			var value = GetString(key, null);
+			if (value == null) {
+				return fallback;
+			}
+			var tokens = value.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+			var bytes = new byte[tokens.Length];
+			for (var i = 0; i < tokens.Length; i++) {
+				if (!byte.TryParse(tokens[i], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out bytes[i])) {
+					Logger.Error("Value \"" + value + "\" for \"" + key + "\" under [" + Name + "] must be bytes in hex separated by spaces, e.g. \"44 4E 44 50\".");
+					return fallback;
+				}
+			}
+			return bytes;
 		}
 	}
 

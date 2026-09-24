@@ -6,6 +6,7 @@ using LibDmd;
 using LibDmd.Common;
 using LibDmd.DmdDevice;
 using LibDmd.Output;
+using LibDmd.Output.DeviceNeutral;
 using LibDmd.Output.FileOutput;
 using LibDmd.Output.Network;
 using LibDmd.Output.Pin2Dmd;
@@ -183,6 +184,23 @@ namespace DmdExt.Common
 					Analytics.Instance.AddDestination(pixelcade);
 				} else {
 					Logger.Warn("Device Pixelcade is not available.");
+				}
+			}
+
+			foreach (var deviceNeutralConfig in config.DeviceNeutralDestinations) {
+				if (!deviceNeutralConfig.Enabled) {
+					continue;
+				}
+				if (string.IsNullOrWhiteSpace(deviceNeutralConfig.Port)) {
+					Logger.Warn("[{0}] Enabled but no port is set, skipping. Set one with --port.", deviceNeutralConfig.Name);
+
+				} else {
+					var transport = new DeviceNeutralSerialTransport(deviceNeutralConfig.Port, deviceNeutralConfig.BaudRate);
+					var deviceNeutral = new DeviceNeutralDestination(transport, deviceNeutralConfig.StartMarker, (byte)deviceNeutralConfig.Panel);
+					renderers.Add(deviceNeutral);
+					Logger.Info("Added device-neutral renderer [{0}] on {1}.", deviceNeutralConfig.Name, transport.Description);
+					reportingTags.Add("Out:DeviceNeutral");
+					Analytics.Instance.AddDestination(deviceNeutral);
 				}
 			}
 

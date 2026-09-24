@@ -83,6 +83,7 @@ Currently supported hardware displays:
 - **PIN2DMD**, full RGB support
 - **Pixelcade**, full RGB support
 - **ZeDMD** / **PinDMD v3.1***, full RGB support
+- Any display that reads the [device-neutral protocol](LibDmd/Output/DeviceNeutral/PROTOCOL.md), over a serial port
 
 _* The display from VirtuaPin marketed as [PinDMD v3.1](https://virtuapin.net/index.php?main_page=product_info&products_id=283) is
 a [ZeDMD](https://github.com/PPUC/ZeDMD) under the hood._

@@ -467,6 +467,11 @@
     <Compile Include="Output\IGray8Destination.cs" />
     <Compile Include="Output\IMultiSizeDestination.cs" />
     <Compile Include="Output\IRgb565Destination.cs" />
+    <Compile Include="Output\DeviceNeutral\DeviceNeutralDestination.cs" />
+    <Compile Include="Output\DeviceNeutral\IDeviceNeutralTransport.cs" />
+    <Compile Include="Output\DeviceNeutral\DeviceNeutralMessageType.cs" />
+    <Compile Include="Output\DeviceNeutral\DeviceNeutralMessageWriter.cs" />
+    <Compile Include="Output\DeviceNeutral\DeviceNeutralSerialTransport.cs" />
     <Compile Include="Output\Network\NetworkStream.cs" />
     <Compile Include="Output\Network\WebsocketSerializer.cs" />
     <Compile Include="Output\Pin2Dmd\Pin2DmdBase.cs" />
@@ -550,6 +555,8 @@
     <Compile Include="Output\Network\BrowserStream.cs" />
     <Compile Include="Output\Network\VpdbStream.cs" />
     <Compile Include="Output\Virtual\AlphaNumeric\AlphaNumericResources.cs" />
+    <None Include="Output\DeviceNeutral\PROTOCOL.md" />
+    <None Include="Output\DeviceNeutral\SERIAL.md" />
     <None Include="Output\Virtual\AlphaNumeric\README.md" />
     <Compile Include="Output\Virtual\AlphaNumeric\DisplaySetting.cs" />
     <Compile Include="Output\Virtual\AlphaNumeric\RasterizeDimensions.cs" />

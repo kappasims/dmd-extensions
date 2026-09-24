@@ -1,8 +1,10 @@
-﻿using System.Windows.Media;
+﻿using System.Collections.Generic;
+using System.Windows.Media;
 using CommandLine;
 using LibDmd.Common;
 using LibDmd.DmdDevice;
 using LibDmd.Input;
+using LibDmd.Output.DeviceNeutral;
 using LibDmd.Output.Virtual.AlphaNumeric;
 using LibDmd.Output.Virtual.Dmd;
 using LibDmd.Output.ZeDMD;
@@ -11,7 +13,7 @@ namespace DmdExt.Common
 {
 	internal abstract class BaseOptions : IConfiguration
 	{
-		[Option('d', "destination", HelpText = "The destination where the DMD data is sent to. One of: [ auto, pindmdv1, pindmdv2, pindmdv3, zedmd, zdmdhd, zedmdwifi, zedmdhdwifi, pin2dmd, virtual, alphanumeric, network ]. Default: \"virtual\".")]
+		[Option('d', "destination", HelpText = "The destination where the DMD data is sent to. One of: [ auto, pindmdv1, pindmdv2, pindmdv3, zedmd, zdmdhd, zedmdwifi, zedmdhdwifi, pin2dmd, virtual, alphanumeric, network, deviceneutral ]. Default: \"virtual\".")]
 		public DestinationType Destination { get; set; } = DestinationType.Virtual;
 
 		[Option('r', "resize", HelpText = "How the source image is resized. One of: [ stretch, fill, fit ]. Default: \"stretch\".")]
@@ -163,6 +165,7 @@ namespace DmdExt.Common
 		public IZeDMDWiFiConfig ZeDMDHDWiFi { get; }
 		public IPin2DmdConfig Pin2Dmd { get; }
 		public IPixelcadeConfig Pixelcade { get; }
+		public IReadOnlyList<IDeviceNeutralConfig> DeviceNeutralDestinations { get; }
 		public IVideoConfig Video { get; }
 		public IGifConfig Gif { get; }
 		public IBitmapConfig Bitmap { get; }
@@ -188,6 +191,7 @@ namespace DmdExt.Common
 			ZeDMDHDWiFi = new ZeDMDHDWiFiOptions(this);
 			Pin2Dmd = new Pin2DmdOptions(this);
 			Pixelcade = new PixelcadeOptions(this);
+			DeviceNeutralDestinations = new[] { new DeviceNeutralOptions(this) };
 			Video = new VideoOptions();
 			Gif = new GifOptions();
 			Bitmap = new BitmapOptions(this);
@@ -200,7 +204,7 @@ namespace DmdExt.Common
 
 		public enum DestinationType
 		{
-			Auto, PinDMDv1, PinDMDv2, PinDMDv3, zeDMD, zeDMDHD, zeDMDWiFi, zeDMDHDWiFi, PIN2DMD, PIN2DMDXL, PIN2DMDHD, PIXELCADE, Virtual, AlphaNumeric, Network
+			Auto, PinDMDv1, PinDMDv2, PinDMDv3, zeDMD, zeDMDHD, zeDMDWiFi, zeDMDHDWiFi, PIN2DMD, PIN2DMDXL, PIN2DMDHD, PIXELCADE, Virtual, AlphaNumeric, Network, DeviceNeutral
 		}
 
 		public void Validate()
@@ -468,6 +472,23 @@ namespace DmdExt.Common
 		                       _options.Destination == BaseOptions.DestinationType.PIXELCADE;
 		public string Port => _options.Port;
 		public ColorMatrix ColorMatrix => _options.ColorMatrix;
+	}
+
+	internal class DeviceNeutralOptions : IDeviceNeutralConfig
+	{
+		private readonly BaseOptions _options;
+
+		public DeviceNeutralOptions(BaseOptions options)
+		{
+			_options = options;
+		}
+
+		public string Name => "deviceneutral";
+		public bool Enabled => _options.Destination == BaseOptions.DestinationType.DeviceNeutral;
+		public string Port => _options.Port;
+		public int BaudRate => DeviceNeutralSerialTransport.DefaultBaudRate;
+		public byte[] StartMarker => DeviceNeutralMessageWriter.DefaultStartMarker;
+		public int Panel => 0;
 	}
 
 	internal class VideoOptions : IVideoConfig

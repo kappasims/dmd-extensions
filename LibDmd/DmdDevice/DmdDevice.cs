@@ -19,6 +19,7 @@ using LibDmd.Converter.Serum;
 using LibDmd.Frame;
 using LibDmd.Input.Passthrough;
 using LibDmd.Output;
+using LibDmd.Output.DeviceNeutral;
 using LibDmd.Output.FileOutput;
 using LibDmd.Output.Network;
 using LibDmd.Output.Pin2Dmd;
@@ -585,6 +586,28 @@ namespace LibDmd.DmdDevice
 					Logger.Info("Added Pixelcade renderer.");
 					ReportingTags.Add("Out:Pixelcade");
 					Analytics.Instance.AddDestination(pixelcade);
+				}
+			}
+			foreach (var config in _config.DeviceNeutralDestinations) {
+				if (!config.Enabled) {
+					continue;
+				}
+				if (string.IsNullOrWhiteSpace(config.Port)) {
+					Logger.Warn("[{0}] Enabled but no port is set, skipping.", config.Name);
+
+				} else if (config.BaudRate <= 0) {
+					Logger.Warn("[{0}] Baud rate {1} must be greater than 0, skipping.", config.Name, config.BaudRate);
+
+				} else if (config.Panel < 0 || config.Panel > 255) {
+					Logger.Warn("[{0}] Panel {1} is out of range 0 to 255, skipping.", config.Name, config.Panel);
+
+				} else {
+					var transport = new DeviceNeutralSerialTransport(config.Port, config.BaudRate);
+					var deviceNeutral = new DeviceNeutralDestination(transport, config.StartMarker, (byte)config.Panel);
+					renderers.Add(deviceNeutral);
+					Logger.Info("Added device-neutral renderer [{0}] on {1}.", config.Name, transport.Description);
+					ReportingTags.Add("Out:DeviceNeutral");
+					Analytics.Instance.AddDestination(deviceNeutral);
 				}
 			}
 			if (_config.VirtualDmd.Enabled) {
