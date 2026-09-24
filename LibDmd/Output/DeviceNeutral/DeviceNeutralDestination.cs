@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Windows.Media;
 using LibDmd.Frame;
@@ -14,7 +15,7 @@ namespace LibDmd.Output.DeviceNeutral
 	/// Frames are sent at their own size. A <see cref="DeviceNeutralMessageType.Size"/> message precedes the first
 	/// frame of each size and is repeated every second.
 	/// </remarks>
-	public class DeviceNeutralDestination : IGray2Destination, IGray4Destination, IGray8Destination, IRgb24Destination
+	public class DeviceNeutralDestination : IGray2Destination, IGray4Destination, IGray8Destination, IRgb24Destination, IFrameFormatFilter
 	{
 		public string Name => "DeviceNeutral";
 
@@ -30,12 +31,20 @@ namespace LibDmd.Output.DeviceNeutral
 		public bool NeedsDuplicateFrames => false;
 		public bool NeedsIdentificationFrames => false;
 
+		/// <summary>
+		/// Gets every message type that the destination sends by default.
+		/// </summary>
+		public static IReadOnlyCollection<DeviceNeutralMessageType> AllMessages => new[] {
+			DeviceNeutralMessageType.Size, DeviceNeutralMessageType.Clear, DeviceNeutralMessageType.Gray2, DeviceNeutralMessageType.Gray4, DeviceNeutralMessageType.Gray8, DeviceNeutralMessageType.Rgb24
+		};
+
 		private const int TickMs = 1000;
 
 		private readonly IDeviceNeutralTransport _transport;
 		private readonly DeviceNeutralMessageWriter _writer;
 		private readonly byte _panel;
 		private readonly byte[] _connectBytes;
+		private readonly HashSet<DeviceNeutralMessageType> _messages;
 		private readonly object _lock = new object();
 		private readonly Timer _timer;
 
@@ -66,11 +75,25 @@ namespace LibDmd.Output.DeviceNeutral
 		/// <param name="panel">The index of the panel that this destination addresses.</param>
 		/// <param name="connectBytes">The bytes written once each time a connection opens. Can be empty.</param>
 		public DeviceNeutralDestination(IDeviceNeutralTransport transport, DeviceNeutralMessageWriter writer, byte panel, byte[] connectBytes)
+			: this(transport, writer, panel, connectBytes, AllMessages)
+		{
+		}
+
+		/// <summary>
+		/// Initializes a new instance of the <see cref="DeviceNeutralDestination"/> class that sends only the given messages.
+		/// </summary>
+		/// <param name="transport">The connection to the receiver. The destination disposes it.</param>
+		/// <param name="writer">The encoder, set up with the protocol parameters.</param>
+		/// <param name="panel">The index of the panel that this destination addresses.</param>
+		/// <param name="connectBytes">The bytes written once each time a connection opens. Can be empty.</param>
+		/// <param name="messages">The message types that are sent.</param>
+		public DeviceNeutralDestination(IDeviceNeutralTransport transport, DeviceNeutralMessageWriter writer, byte panel, byte[] connectBytes, IReadOnlyCollection<DeviceNeutralMessageType> messages)
 		{
 			_transport = transport;
 			_writer = writer;
 			_panel = panel;
 			_connectBytes = connectBytes;
+			_messages = new HashSet<DeviceNeutralMessageType>(messages);
 			_timer = new Timer(Tick, null, 0, TickMs);
 		}
 
@@ -94,10 +117,26 @@ namespace LibDmd.Output.DeviceNeutral
 			Send(DeviceNeutralMessageType.Rgb24, frame);
 		}
 
+		/// <summary>
+		/// Returns whether the destination sends frames in the given format.
+		/// </summary>
+		/// <param name="format">A frame format that the destination implements.</param>
+		/// <returns><see langword="true"/> if the format's message type is among the messages that are sent; otherwise, <see langword="false"/>.</returns>
+		public bool Accepts(FrameFormat format)
+		{
+			switch (format) {
+				case FrameFormat.Gray2: return _messages.Contains(DeviceNeutralMessageType.Gray2);
+				case FrameFormat.Gray4: return _messages.Contains(DeviceNeutralMessageType.Gray4);
+				case FrameFormat.Gray8: return _messages.Contains(DeviceNeutralMessageType.Gray8);
+				case FrameFormat.Rgb24: return _messages.Contains(DeviceNeutralMessageType.Rgb24);
+				default: return true;
+			}
+		}
+
 		public void ClearDisplay()
 		{
 			lock (_lock) {
-				if (!_disposed && _transport.IsConnected) {
+				if (!_disposed && _messages.Contains(DeviceNeutralMessageType.Clear) && _transport.IsConnected) {
 					Write(_writer.Clear(_panel), DeviceNeutralMessageType.Clear);
 				}
 			}
@@ -131,7 +170,7 @@ namespace LibDmd.Output.DeviceNeutral
 		private void Send(DeviceNeutralMessageType type, DmdFrame frame)
 		{
 			lock (_lock) {
-				if (_disposed) {
+				if (_disposed || !_messages.Contains(type)) {
 					return;
 				}
 				if (!_hasSize || frame.Dimensions != _size) {
@@ -176,7 +215,7 @@ namespace LibDmd.Output.DeviceNeutral
 
 		private void SendSize()
 		{
-			_sizeSent = Write(_writer.Size(_panel, _size), DeviceNeutralMessageType.Size);
+			_sizeSent = !_messages.Contains(DeviceNeutralMessageType.Size) || Write(_writer.Size(_panel, _size), DeviceNeutralMessageType.Size);
 		}
 
 		private bool Write(ArraySegment<byte> message, DeviceNeutralMessageType type)

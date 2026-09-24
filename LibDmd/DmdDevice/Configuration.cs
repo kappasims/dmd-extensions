@@ -389,6 +389,7 @@ namespace LibDmd.DmdDevice
 		public Dimensions FixedSize => GetDimensions("fixedsize", Dimensions.Dynamic);
 		public ColorMatrix ColorOrder => GetEnum("colororder", ColorMatrix.Rgb);
 		public byte[] Connect => GetHexBytes("connect", new byte[0]);
+		public IReadOnlyCollection<DeviceNeutralMessageType> Messages => GetMessages("messages", DeviceNeutralDestination.AllMessages);
 		public DeviceNeutralConfig(IniData data, Configuration parent, string name) : base(data, parent)
 		{
 			Name = name;
@@ -420,6 +421,15 @@ namespace LibDmd.DmdDevice
 			{ "none", DeviceNeutralLengthFormat.None },
 		};
 
+		private static readonly Dictionary<string, DeviceNeutralMessageType> MessageNames = new Dictionary<string, DeviceNeutralMessageType>(StringComparer.OrdinalIgnoreCase) {
+			{ "size", DeviceNeutralMessageType.Size },
+			{ "clear", DeviceNeutralMessageType.Clear },
+			{ "gray2", DeviceNeutralMessageType.Gray2 },
+			{ "gray4", DeviceNeutralMessageType.Gray4 },
+			{ "gray8", DeviceNeutralMessageType.Gray8 },
+			{ "rgb24", DeviceNeutralMessageType.Rgb24 },
+		};
+
 		private static readonly Dictionary<string, DeviceNeutralMessageType> TypeKeys = new Dictionary<string, DeviceNeutralMessageType> {
 			{ "type.size", DeviceNeutralMessageType.Size },
 			{ "type.clear", DeviceNeutralMessageType.Clear },
@@ -448,6 +458,25 @@ namespace LibDmd.DmdDevice
 				return fallback;
 			}
 			return fields.ToArray();
+		}
+
+		private IReadOnlyCollection<DeviceNeutralMessageType> GetMessages(string key, IReadOnlyCollection<DeviceNeutralMessageType> fallback)
+		{
+			var value = GetString(key, null);
+			if (string.IsNullOrWhiteSpace(value)) {
+				return fallback;
+			}
+			var messages = new List<DeviceNeutralMessageType>();
+			foreach (var token in value.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)) {
+				if (!MessageNames.TryGetValue(token, out var message)) {
+					Logger.Error("Value \"" + value + "\" for \"" + key + "\" under [" + Name + "] must list messages out of size, clear, gray2, gray4, gray8 and rgb24.");
+					return fallback;
+				}
+				if (!messages.Contains(message)) {
+					messages.Add(message);
+				}
+			}
+			return messages;
 		}
 
 		private DeviceNeutralLengthFormat GetLengthFormat(string key, DeviceNeutralLengthFormat fallback)

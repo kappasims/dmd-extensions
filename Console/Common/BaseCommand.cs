@@ -200,8 +200,8 @@ namespace DmdExt.Common
 					var writer = new DeviceNeutralMessageWriter(deviceNeutralConfig.Layout, deviceNeutralConfig.StartMarker, deviceNeutralConfig.EndMarker, deviceNeutralConfig.Length, deviceNeutralConfig.TypeBytes, deviceNeutralConfig.ColorOrder);
 					var fixedSize = deviceNeutralConfig.FixedSize;
 					var deviceNeutral = fixedSize == Dimensions.Dynamic
-						? new DeviceNeutralDestination(transport, writer, (byte)deviceNeutralConfig.Panel, deviceNeutralConfig.Connect)
-						: new FixedSizeDeviceNeutralDestination(transport, writer, (byte)deviceNeutralConfig.Panel, deviceNeutralConfig.Connect, fixedSize);
+						? new DeviceNeutralDestination(transport, writer, (byte)deviceNeutralConfig.Panel, deviceNeutralConfig.Connect, deviceNeutralConfig.Messages)
+						: new FixedSizeDeviceNeutralDestination(transport, writer, (byte)deviceNeutralConfig.Panel, deviceNeutralConfig.Connect, deviceNeutralConfig.Messages, fixedSize);
 					renderers.Add(deviceNeutral);
 					Logger.Info("Added device-neutral renderer [{0}] on {1}.", deviceNeutralConfig.Name, transport.Description);
 					reportingTags.Add("Out:DeviceNeutral");

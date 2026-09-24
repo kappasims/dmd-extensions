@@ -545,6 +545,7 @@
     <Compile Include="Output\FileOutput\VideoOutput.cs" />
     <Compile Include="Output\IBitmapDestination.cs" />
     <Compile Include="Output\IColoredGray2Destination.cs" />
+    <Compile Include="Output\IFrameFormatFilter.cs" />
     <Compile Include="Output\IGray2Destination.cs" />
     <Compile Include="Output\IFixedSizeDestination.cs" />
     <Compile Include="Output\IColoredGray4Destination.cs" />

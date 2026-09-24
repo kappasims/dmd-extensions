@@ -113,6 +113,7 @@ namespace LibDmd.DmdDevice
 		Dimensions FixedSize { get; }
 		ColorMatrix ColorOrder { get; }
 		byte[] Connect { get; }
+		IReadOnlyCollection<DeviceNeutralMessageType> Messages { get; }
 	}
 
 	public interface IVirtualDmdConfig

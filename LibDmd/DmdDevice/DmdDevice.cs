@@ -606,8 +606,8 @@ namespace LibDmd.DmdDevice
 					var writer = new DeviceNeutralMessageWriter(config.Layout, config.StartMarker, config.EndMarker, config.Length, config.TypeBytes, config.ColorOrder);
 					var fixedSize = config.FixedSize;
 					var deviceNeutral = fixedSize == Dimensions.Dynamic
-						? new DeviceNeutralDestination(transport, writer, (byte)config.Panel, config.Connect)
-						: new FixedSizeDeviceNeutralDestination(transport, writer, (byte)config.Panel, config.Connect, fixedSize);
+						? new DeviceNeutralDestination(transport, writer, (byte)config.Panel, config.Connect, config.Messages)
+						: new FixedSizeDeviceNeutralDestination(transport, writer, (byte)config.Panel, config.Connect, config.Messages, fixedSize);
 					renderers.Add(deviceNeutral);
 					Logger.Info("Added device-neutral renderer [{0}] on {1}.", config.Name, transport.Description);
 					ReportingTags.Add("Out:DeviceNeutral");

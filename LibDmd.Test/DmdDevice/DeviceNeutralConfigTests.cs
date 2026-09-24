@@ -157,6 +157,34 @@ namespace LibDmd.Test
 		}
 
 		[TestCase]
+		public void Should_Default_To_All_Messages()
+		{
+			var config = FromIni("[deviceneutral]");
+
+			config.Messages.Should().BeEquivalentTo(DeviceNeutralDestination.AllMessages);
+		}
+
+		[TestCase]
+		public void Should_Read_Messages()
+		{
+			var config = FromIni(@"
+				[deviceneutral]
+				messages = rgb24 clear");
+
+			config.Messages.Should().Equal(DeviceNeutralMessageType.Rgb24, DeviceNeutralMessageType.Clear);
+		}
+
+		[TestCase]
+		public void Should_Fall_Back_On_Invalid_Messages()
+		{
+			var config = FromIni(@"
+				[deviceneutral]
+				messages = rgb565");
+
+			config.Messages.Should().BeEquivalentTo(DeviceNeutralDestination.AllMessages);
+		}
+
+		[TestCase]
 		public void Should_Have_No_Destination_Without_A_Section()
 		{
 			ConfigurationFromIni("[global]").DeviceNeutralDestinations.Should().BeEmpty();

@@ -149,6 +149,7 @@ namespace LibDmd.Test
 		public Dimensions FixedSize { get; set; }
 		public ColorMatrix ColorOrder { get; set; }
 		public byte[] Connect { get; set; }
+		public IReadOnlyCollection<DeviceNeutralMessageType> Messages { get; set; }
 	}
 
 	public class TestVideoConfig : IVideoConfig

@@ -497,6 +497,7 @@ namespace DmdExt.Common
 		public Dimensions FixedSize => Dimensions.Dynamic;
 		public ColorMatrix ColorOrder => ColorMatrix.Rgb;
 		public byte[] Connect => new byte[0];
+		public IReadOnlyCollection<DeviceNeutralMessageType> Messages => DeviceNeutralDestination.AllMessages;
 	}
 
 	internal class VideoOptions : IVideoConfig
