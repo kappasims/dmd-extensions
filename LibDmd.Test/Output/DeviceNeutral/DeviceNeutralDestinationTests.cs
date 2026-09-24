@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Media;
 using FluentAssertions;
 using LibDmd.Frame;
 using LibDmd.Output;
@@ -149,6 +150,72 @@ namespace LibDmd.Test
 			_destination = new FixedSizeDeviceNeutralDestination(_transport, new DeviceNeutralMessageWriter(new byte[0]), Panel, new byte[0], new Dimensions(128, 32));
 
 			(_destination as IFixedSizeDestination).FixedSize.Should().Be(new Dimensions(128, 32));
+		}
+
+		[TestCase]
+		public void Should_Not_Send_Size_Or_Clear_When_Not_Listed()
+		{
+			_destination = new DeviceNeutralDestination(_transport, new DeviceNeutralMessageWriter(new byte[0]), Panel, new byte[0], new[] { DeviceNeutralMessageType.Gray4 });
+
+			_destination.RenderGray4(new DmdFrame(128, 32, 4));
+			_destination.ClearDisplay();
+
+			Messages().Select(m => (DeviceNeutralMessageType)m[0]).Should().Equal(DeviceNeutralMessageType.Gray4);
+		}
+
+		[TestCase]
+		public void Should_Convert_Gray_To_Rgb24_With_Color_When_Not_Listed()
+		{
+			_destination = new DeviceNeutralDestination(_transport, new DeviceNeutralMessageWriter(new byte[0]), Panel, new byte[0], new[] { DeviceNeutralMessageType.Rgb24 });
+
+			_destination.RenderGray2(FrameGenerator.FromString("0123"));
+
+			Messages().Should().ContainSingle().Which.Should().Equal(
+				(byte)DeviceNeutralMessageType.Rgb24, Panel, 0x00, 0x00, 0x00, 0x55, 0x17, 0x00, 0xAA, 0x2E, 0x00, 0xFF, 0x45, 0x00);
+		}
+
+		[TestCase]
+		public void Should_Convert_Gray_To_Rgb24_With_Palette_When_Not_Listed()
+		{
+			_destination = new DeviceNeutralDestination(_transport, new DeviceNeutralMessageWriter(new byte[0]), Panel, new byte[0], new[] { DeviceNeutralMessageType.Rgb24 });
+			_destination.SetPalette(new[] { Colors.Black, Colors.White });
+
+			_destination.RenderGray2(FrameGenerator.FromString("03"));
+
+			Messages().Should().ContainSingle().Which.Should().Equal(
+				(byte)DeviceNeutralMessageType.Rgb24, Panel, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF);
+		}
+
+		[TestCase]
+		public void Should_Convert_Rgb24_To_Gray4_When_Not_Listed()
+		{
+			_destination = new DeviceNeutralDestination(_transport, new DeviceNeutralMessageWriter(new byte[0]), Panel, new byte[0], new[] { DeviceNeutralMessageType.Gray4 });
+
+			_destination.RenderRgb24(new DmdFrame(1, 1, new byte[] { 0xFF, 0xFF, 0xFF }, 24));
+
+			Messages().Should().ContainSingle().Which.Should().Equal((byte)DeviceNeutralMessageType.Gray4, Panel, 0xF0);
+		}
+
+		[TestCase]
+		public void Should_Leave_Converted_Frame_Unchanged()
+		{
+			_destination = new DeviceNeutralDestination(_transport, new DeviceNeutralMessageWriter(new byte[0]), Panel, new byte[0], new[] { DeviceNeutralMessageType.Rgb24 });
+			var frame = FrameGenerator.FromString("0123");
+
+			_destination.RenderGray2(frame);
+
+			frame.BitLength.Should().Be(2);
+			frame.Data.Should().Equal(0x00, 0x01, 0x02, 0x03);
+		}
+
+		[TestCase]
+		public void Should_Skip_Frames_That_Cannot_Be_Converted()
+		{
+			_destination = new DeviceNeutralDestination(_transport, new DeviceNeutralMessageWriter(new byte[0]), Panel, new byte[0], new[] { DeviceNeutralMessageType.Gray8 });
+
+			_destination.RenderGray4(new DmdFrame(128, 32, 4));
+
+			_transport.Writes.Should().BeEmpty();
 		}
 
 		private void Create()

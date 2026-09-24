@@ -1,4 +1,5 @@
-﻿using LibDmd.Frame;
+﻿using System.Collections.Generic;
+using LibDmd.Frame;
 
 namespace LibDmd.Output.DeviceNeutral
 {
@@ -22,7 +23,22 @@ namespace LibDmd.Output.DeviceNeutral
 		/// <param name="connectBytes">The bytes written once each time a connection opens. Can be empty.</param>
 		/// <param name="fixedSize">The size that every frame is scaled to.</param>
 		public FixedSizeDeviceNeutralDestination(IDeviceNeutralTransport transport, DeviceNeutralMessageWriter writer, byte panel, byte[] connectBytes, Dimensions fixedSize)
-			: base(transport, writer, panel, connectBytes)
+			: this(transport, writer, panel, connectBytes, AllMessages, fixedSize)
+		{
+		}
+
+		/// <summary>
+		/// Initializes a new instance of the <see cref="FixedSizeDeviceNeutralDestination"/> class that sends only the given messages.
+		/// </summary>
+		/// <param name="transport">The connection to the receiver. The destination disposes it.</param>
+		/// <param name="writer">The encoder, set up with the protocol parameters.</param>
+		/// <param name="panel">The index of the panel that this destination addresses.</param>
+		/// <param name="connectBytes">The bytes written once each time a connection opens. Can be empty.</param>
+		/// <param name="messages">The message types that are sent.</param>
+		/// <param name="fixedSize">The size that every frame is scaled to.</param>
+		public FixedSizeDeviceNeutralDestination(IDeviceNeutralTransport transport, DeviceNeutralMessageWriter writer, byte panel, byte[] connectBytes,
+			IReadOnlyCollection<DeviceNeutralMessageType> messages, Dimensions fixedSize)
+			: base(transport, writer, panel, connectBytes, messages)
 		{
 			FixedSize = fixedSize;
 		}
