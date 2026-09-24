@@ -7,6 +7,7 @@ using DmdExt.Mirror;
 using DmdExt.Play;
 using DmdExt.Server;
 using DmdExt.Test;
+using DmdExt.Validate;
 
 namespace DmdExt.Common
 {
@@ -24,12 +25,16 @@ namespace DmdExt.Common
 		[VerbOption("server", HelpText = "Starts a websocket server to receive frames on.")]
 		public ServerOptions Server { get; set; }
 
+		[VerbOption("validate", HelpText = "Checks a DmdDevice.ini and reports settings that are wrong or ignored.")]
+		public ValidateOptions ValidateIni { get; set; }
+
 		public Options()
 		{
 			Mirror = new MirrorOptions();
 			Play = new PlayOptions();
 			Test = new TestOptions();
 			Server = new ServerOptions();
+			ValidateIni = new ValidateOptions();
 		}
 
 		public void Validate()
@@ -52,6 +57,8 @@ namespace DmdExt.Common
 					return AutoBuild(Test, "dmdext test [--destination=<destination>]", Test.LastParserState);
 				case "server":
 					return AutoBuild(Test, "dmdext server [--ip=<ip address>] [--port=<port>] [--path=<path>]", Server.LastParserState);
+				case "validate":
+					return AutoBuild(ValidateIni, "dmdext validate [--use-ini[=<ini path>]]", ValidateIni.LastParserState);
 				default:
 					return AutoBuild(this, "dmdext <command> [<options>]", null, false);
 			}

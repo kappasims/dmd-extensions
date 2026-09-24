@@ -1269,7 +1269,7 @@ namespace LibDmd.DmdDevice
 		}
 	}
 
-	public abstract class AbstractConfiguration
+	public abstract class AbstractConfiguration : IConfigurationSection
 	{
 		public abstract string Name { get; }
 		private readonly IniData _data;
