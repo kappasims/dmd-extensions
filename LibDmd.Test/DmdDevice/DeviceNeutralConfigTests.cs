@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
 using LibDmd.Common;
@@ -201,6 +202,32 @@ namespace LibDmd.Test
 			var config = ReadCompleteSectionWith("connect");
 
 			config.Validate().Should().Contain(e => e.Contains("\"connect\""));
+		}
+
+		[TestCase]
+		public void Should_Read_Pipe_Instead_Of_Port()
+		{
+			var config = ReadCompleteSectionWith("port", "baudrate", "pipe = deviceneutral");
+
+			config.Validate().Should().BeEmpty();
+			config.Pipe.Should().Be("deviceneutral");
+			config.Invoking(c => c.Port).Should().Throw<InvalidOperationException>();
+		}
+
+		[TestCase]
+		public void Should_Report_Both_Port_And_Pipe()
+		{
+			var config = ReadCompleteSectionWith("pipe = deviceneutral");
+
+			config.Validate().Should().ContainSingle().Which.Should().Contain("\"pipe\"");
+		}
+
+		[TestCase]
+		public void Should_Report_A_Baud_Rate_With_A_Pipe()
+		{
+			var config = ReadCompleteSectionWith("port", "pipe = deviceneutral");
+
+			config.Validate().Should().ContainSingle().Which.Should().Contain("\"baudrate\"");
 		}
 
 		[TestCase]

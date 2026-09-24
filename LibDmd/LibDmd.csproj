@@ -474,6 +474,7 @@
     <Compile Include="Output\DeviceNeutral\DeviceNeutralMessageField.cs" />
     <Compile Include="Output\DeviceNeutral\DeviceNeutralMessageType.cs" />
     <Compile Include="Output\DeviceNeutral\DeviceNeutralMessageWriter.cs" />
+    <Compile Include="Output\DeviceNeutral\DeviceNeutralNamedPipeTransport.cs" />
     <Compile Include="Output\DeviceNeutral\DeviceNeutralSerialTransport.cs" />
     <Compile Include="Output\DeviceNeutral\DeviceNeutralSerialPort.cs" />
     <Compile Include="Output\DeviceNeutral\DeviceNeutralNamedSerialPort.cs" />
@@ -566,6 +567,7 @@
     <Compile Include="Output\Network\BrowserStream.cs" />
     <Compile Include="Output\Network\VpdbStream.cs" />
     <Compile Include="Output\Virtual\AlphaNumeric\AlphaNumericResources.cs" />
+    <None Include="Output\DeviceNeutral\NAMED-PIPE.md" />
     <None Include="Output\DeviceNeutral\PARAMETERS.md" />
     <None Include="Output\DeviceNeutral\PROTOCOL.md" />
     <None Include="Output\DeviceNeutral\SERIAL.md" />
