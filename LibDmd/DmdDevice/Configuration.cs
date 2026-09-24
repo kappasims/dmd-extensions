@@ -378,6 +378,12 @@ namespace LibDmd.DmdDevice
 			}
 		}
 
+		public string Pipe {
+			get {
+				return GetString("pipe", null);
+			}
+		}
+
 		public int BaudRate {
 			get {
 				return ReadBaudRate(null);
@@ -499,11 +505,20 @@ namespace LibDmd.DmdDevice
 		public IReadOnlyList<string> Validate()
 		{
 			var errors = new List<string>();
-			var port = ReadRequiredValue("port", errors);
-			if (port.Length > 0 && !DeviceNeutralSerialPort.TryParse(port, out var serialPort)) {
-				AddInvalidValueError("port", port, "be a port name, e.g. \"COM4\", or usb: and the display's USB vendor and product ID in hex, e.g. \"usb:2E8A:000A\"", errors);
+			var hasPort = IsSet("port");
+			var hasPipe = IsSet("pipe");
+			if (hasPort == hasPipe) {
+				errors.Add("Exactly one of \"port\" and \"pipe\" under [" + Name + "] must be set.");
 			}
-			ReadBaudRate(errors);
+			if (hasPort) {
+				var port = ReadRequiredValue("port", errors);
+				if (!DeviceNeutralSerialPort.TryParse(port, out var serialPort)) {
+					AddInvalidValueError("port", port, "be a port name, e.g. \"COM4\", or usb: and the display's USB vendor and product ID in hex, e.g. \"usb:2E8A:000A\"", errors);
+				}
+				ReadBaudRate(errors);
+			} else if (hasPipe && IsSet("baudrate")) {
+				errors.Add("\"baudrate\" under [" + Name + "] is set, but only applies to \"port\".");
+			}
 			var layout = ReadLayout(errors);
 			var messages = ReadMessages(errors);
 			ReadFixedSize(errors);

@@ -104,6 +104,7 @@ namespace LibDmd.DmdDevice
 		bool Enabled { get; }
 		IReadOnlyList<string> Validate();
 		DeviceNeutralSerialPort Port { get; }
+		string Pipe { get; }
 		int BaudRate { get; }
 		DeviceNeutralMessageField[] Layout { get; }
 		byte[] StartMarker { get; }

@@ -200,7 +200,9 @@ namespace DmdExt.Common
 					Logger.Warn("[{0}] Enabled but not fully configured, skipping.", deviceNeutralConfig.Name);
 
 				} else {
-					var transport = new DeviceNeutralSerialTransport(deviceNeutralConfig.Port, deviceNeutralConfig.BaudRate);
+					var transport = string.IsNullOrWhiteSpace(deviceNeutralConfig.Pipe)
+						? (IDeviceNeutralTransport)new DeviceNeutralSerialTransport(deviceNeutralConfig.Port, deviceNeutralConfig.BaudRate)
+						: new DeviceNeutralNamedPipeTransport(deviceNeutralConfig.Pipe);
 					var writer = new DeviceNeutralMessageWriter(deviceNeutralConfig.Layout, deviceNeutralConfig.StartMarker, deviceNeutralConfig.EndMarker, deviceNeutralConfig.Length, deviceNeutralConfig.TypeBytes, deviceNeutralConfig.ColorOrder);
 					var fixedSize = deviceNeutralConfig.FixedSize;
 					var deviceNeutral = fixedSize == Dimensions.Dynamic

@@ -600,7 +600,9 @@ namespace LibDmd.DmdDevice
 					Logger.Warn("[{0}] Enabled but not fully configured, skipping.", config.Name);
 
 				} else {
-					var transport = new DeviceNeutralSerialTransport(config.Port, config.BaudRate);
+					var transport = string.IsNullOrWhiteSpace(config.Pipe)
+						? (IDeviceNeutralTransport)new DeviceNeutralSerialTransport(config.Port, config.BaudRate)
+						: new DeviceNeutralNamedPipeTransport(config.Pipe);
 					var writer = new DeviceNeutralMessageWriter(config.Layout, config.StartMarker, config.EndMarker, config.Length, config.TypeBytes, config.ColorOrder);
 					var fixedSize = config.FixedSize;
 					var deviceNeutral = fixedSize == Dimensions.Dynamic
