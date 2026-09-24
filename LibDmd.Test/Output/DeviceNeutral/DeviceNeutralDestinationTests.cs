@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Media;
 using FluentAssertions;
 using LibDmd.Common;
 using LibDmd.Frame;
@@ -98,14 +99,59 @@ namespace LibDmd.Test
 		}
 
 		[TestCase]
-		public void Should_Drop_Frames_Of_Types_That_Are_Not_Listed()
+		public void Should_Convert_Gray_To_Rgb24_With_Color_When_Not_Listed()
 		{
-			CreateDestination(DeviceNeutralMessageType.Size, DeviceNeutralMessageType.Gray4);
+			CreateDestination(DeviceNeutralMessageType.Rgb24);
 
-			_destination.RenderRgb24(new DmdFrame(128, 32, 24));
+			_destination.RenderGray2(FrameGenerator.FromString("0123"));
+
+			ReadWrittenMessages().Should().ContainSingle().Which.Should().Equal(
+				TypeBytes[DeviceNeutralMessageType.Rgb24], Panel, 0x00, 0x00, 0x00, 0x55, 0x17, 0x00, 0xAA, 0x2E, 0x00, 0xFF, 0x45, 0x00);
+		}
+
+		[TestCase]
+		public void Should_Convert_Gray_To_Rgb24_With_Palette_When_Not_Listed()
+		{
+			CreateDestination(DeviceNeutralMessageType.Rgb24);
+			_destination.SetPalette(new[] { Colors.Black, Colors.White });
+
+			_destination.RenderGray2(FrameGenerator.FromString("03"));
+
+			ReadWrittenMessages().Should().ContainSingle().Which.Should().Equal(
+				TypeBytes[DeviceNeutralMessageType.Rgb24], Panel, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF);
+		}
+
+		[TestCase]
+		public void Should_Convert_Rgb24_To_Gray4_When_Not_Listed()
+		{
+			CreateDestination(DeviceNeutralMessageType.Gray4);
+
+			_destination.RenderRgb24(new DmdFrame(1, 1, new byte[] { 0xFF, 0xFF, 0xFF }, 24));
+
+			ReadWrittenMessages().Should().ContainSingle().Which.Should().Equal(TypeBytes[DeviceNeutralMessageType.Gray4], Panel, 0xF0);
+		}
+
+		[TestCase]
+		public void Should_Leave_Converted_Frame_Unchanged()
+		{
+			CreateDestination(DeviceNeutralMessageType.Rgb24);
+			var frame = FrameGenerator.FromString("0123");
+
+			_destination.RenderGray2(frame);
+
+			frame.BitLength.Should().Be(2);
+			frame.Data.Should().Equal(0x00, 0x01, 0x02, 0x03);
+		}
+
+		[TestCase]
+		public void Should_Drop_Frames_That_Cannot_Be_Converted()
+		{
+			CreateDestination(DeviceNeutralMessageType.Size, DeviceNeutralMessageType.Gray8);
+
 			_destination.RenderGray4(new DmdFrame(128, 32, 4));
+			_destination.RenderGray8(new DmdFrame(128, 32, 8));
 
-			ReadWrittenMessages().Where(IsFrame).Select(m => m[0]).Should().Equal(TypeBytes[DeviceNeutralMessageType.Gray4]);
+			ReadWrittenMessages().Where(IsFrame).Select(m => m[0]).Should().Equal(TypeBytes[DeviceNeutralMessageType.Gray8]);
 		}
 
 		[TestCase]

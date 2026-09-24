@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Windows.Media;
+using LibDmd.Common;
 using LibDmd.Frame;
 using NLog;
 
@@ -13,8 +14,9 @@ namespace LibDmd.Output.DeviceNeutral
 	/// </summary>
 	/// <remarks>
 	/// Frames are sent at their own size. If <see cref="DeviceNeutralMessageType.Size"/> is among the messages that
-	/// are sent, a size message precedes the first frame of each size and is repeated every second. Frames of a type
-	/// that isn't among them are dropped.
+	/// are sent, a size message precedes the first frame of each size and is repeated every second. A frame of a type
+	/// that isn't among them is converted to one that is, using the color and palette set on the destination, or
+	/// dropped if none can be converted to.
 	/// </remarks>
 	public class DeviceNeutralDestination : IGray2Destination, IGray4Destination, IGray8Destination, IRgb24Destination
 	{
@@ -65,6 +67,8 @@ namespace LibDmd.Output.DeviceNeutral
 		private bool _sizeSent;
 		private bool _disposed;
 		private bool _encodeWarned;
+		private Color _color = RenderGraph.DefaultColor;
+		private Color[] _palette;
 
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
@@ -117,18 +121,30 @@ namespace LibDmd.Output.DeviceNeutral
 
 		public void SetColor(Color color)
 		{
+			lock (_lock) {
+				_color = color;
+			}
 		}
 
 		public void ClearColor()
 		{
+			lock (_lock) {
+				_color = RenderGraph.DefaultColor;
+			}
 		}
 
 		public void SetPalette(Color[] colors)
 		{
+			lock (_lock) {
+				_palette = colors;
+			}
 		}
 
 		public void ClearPalette()
 		{
+			lock (_lock) {
+				_palette = null;
+			}
 		}
 
 		public void Dispose()
@@ -147,10 +163,25 @@ namespace LibDmd.Output.DeviceNeutral
 					return;
 				}
 				if (!_messages.Contains(type)) {
-					if (_dropWarned.Add(type)) {
-						Logger.Warn("[deviceneutral] {0} frames are not among the configured messages, dropping them.", type);
+					if (type != DeviceNeutralMessageType.Rgb24 && _messages.Contains(DeviceNeutralMessageType.Rgb24)) {
+						var colors = _palette ?? new[] { Colors.Black, _color };
+						frame = frame.CloneFrame().ConvertGrayToRgb24(ColorUtil.GetPalette(colors, 1 << frame.BitLength));
+						type = DeviceNeutralMessageType.Rgb24;
+
+					} else if (type != DeviceNeutralMessageType.Gray4 && _messages.Contains(DeviceNeutralMessageType.Gray4)) {
+						frame = frame.CloneFrame().ConvertToGray4();
+						type = DeviceNeutralMessageType.Gray4;
+
+					} else if (type != DeviceNeutralMessageType.Gray2 && _messages.Contains(DeviceNeutralMessageType.Gray2)) {
+						frame = frame.CloneFrame().ConvertToGray2();
+						type = DeviceNeutralMessageType.Gray2;
+
+					} else {
+						if (_dropWarned.Add(type)) {
+							Logger.Warn("[deviceneutral] {0} frames can't be converted to any of the configured messages, dropping them.", type);
+						}
+						return;
 					}
-					return;
 				}
 				if (!_hasSize || frame.Dimensions != _size) {
 					_size = frame.Dimensions;
