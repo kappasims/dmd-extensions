@@ -460,6 +460,7 @@ dmdext --help
 dmdext mirror --help
 dmdext play --help
 dmdext test --help
+dmdext validate --help
 ```
 
 #### Mirror Command
@@ -502,6 +503,23 @@ Examples:
 ```
 dmdext test
 dmdext test --format gray2
+```
+
+#### Validate Command
+
+The `validate` command checks a `DmdDevice.ini` without starting anything, and reports settings that DmdDevice
+rejects or ignores: a value it can't read, an unknown or misspelled key or section, a repeated key, a plugin after
+a gap in the numbering, and so on. It only takes `--use-ini`, with the same fallback to `DMDDEVICE_CONFIG`, and
+exits with 1 when it finds an error. The last line names the file it checked. A path after `--use-ini` that doesn't
+contain `DmdDevice.ini` is replaced by `DMDDEVICE_CONFIG` when that's set, so pass a file with another name as
+`--use-ini=<path>`.
+
+Examples:
+
+```
+dmdext validate --use-ini
+dmdext validate --use-ini "C:\Visual Pinball\VPinMAME\DmdDevice.ini"
+dmdext validate --use-ini="C:\Visual Pinball\VPinMAME\test.ini"
 ```
 
 ### ZeDMD

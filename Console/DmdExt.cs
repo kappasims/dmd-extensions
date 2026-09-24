@@ -13,6 +13,7 @@ using DmdExt.Mirror;
 using DmdExt.Play;
 using DmdExt.Server;
 using DmdExt.Test;
+using DmdExt.Validate;
 using LibDmd;
 using LibDmd.Common;
 using LibDmd.DmdDevice;
@@ -100,6 +101,10 @@ namespace DmdExt
 				invokedVerbInstance = subOptions;
 			})) {
 				Environment.Exit(Parser.DefaultExitCodeFail);
+			}
+
+			if (invokedVerb == "validate") {
+				Environment.Exit(ValidateCommand.Execute((ValidateOptions)invokedVerbInstance));
 			}
 
 			try {

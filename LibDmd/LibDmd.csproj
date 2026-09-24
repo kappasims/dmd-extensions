@@ -432,6 +432,7 @@
     <Compile Include="Converter\Vni\VniLoader.cs" />
     <Compile Include="DmdDevice\PMOptions.cs" />
     <Compile Include="DmdDevice\IConfiguration.cs" />
+    <Compile Include="DmdDevice\IConfigurationSection.cs" />
     <Compile Include="Frame\BaseFrame.cs" />
     <Compile Include="Frame\BmpFrame.cs" />
     <Compile Include="Frame\ColoredFrame.cs" />
