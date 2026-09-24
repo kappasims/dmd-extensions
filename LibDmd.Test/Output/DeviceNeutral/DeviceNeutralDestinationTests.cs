@@ -109,6 +109,17 @@ namespace LibDmd.Test
 		}
 
 		[TestCase]
+		public void Should_Accept_Only_Listed_Frame_Formats()
+		{
+			CreateDestination(DeviceNeutralMessageType.Size, DeviceNeutralMessageType.Rgb24);
+
+			_destination.Accepts(FrameFormat.Gray2).Should().BeFalse();
+			_destination.Accepts(FrameFormat.Gray4).Should().BeFalse();
+			_destination.Accepts(FrameFormat.Gray8).Should().BeFalse();
+			_destination.Accepts(FrameFormat.Rgb24).Should().BeTrue();
+		}
+
+		[TestCase]
 		public void Should_Not_Send_Size_Unless_Listed()
 		{
 			CreateDestination(DeviceNeutralMessageType.Gray4);
