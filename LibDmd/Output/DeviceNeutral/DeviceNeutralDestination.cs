@@ -13,10 +13,10 @@ namespace LibDmd.Output.DeviceNeutral
 	/// </summary>
 	/// <remarks>
 	/// Frames are sent at their own size. If <see cref="DeviceNeutralMessageType.Size"/> is among the messages that
-	/// are sent, a size message precedes the first frame of each size and is repeated every second. Frames of a type
-	/// that isn't among them are dropped.
+	/// are sent, a size message precedes the first frame of each size and is repeated every second. The destination
+	/// turns down frame formats that aren't among them, so the render graph converts frames to one that is.
 	/// </remarks>
-	public class DeviceNeutralDestination : IGray2Destination, IGray4Destination, IGray8Destination, IRgb24Destination
+	public class DeviceNeutralDestination : IGray2Destination, IGray4Destination, IGray8Destination, IRgb24Destination, IFrameFormatFilter
 	{
 		public string Name {
 			get {
@@ -104,6 +104,22 @@ namespace LibDmd.Output.DeviceNeutral
 		public void RenderRgb24(DmdFrame frame)
 		{
 			SendFrame(DeviceNeutralMessageType.Rgb24, frame);
+		}
+
+		/// <summary>
+		/// Returns whether the destination sends frames in the given format.
+		/// </summary>
+		/// <param name="format">A frame format that the destination implements.</param>
+		/// <returns><see langword="true"/> if the format's message type is among the messages that are sent; otherwise, <see langword="false"/>.</returns>
+		public bool Accepts(FrameFormat format)
+		{
+			switch (format) {
+				case FrameFormat.Gray2: return _messages.Contains(DeviceNeutralMessageType.Gray2);
+				case FrameFormat.Gray4: return _messages.Contains(DeviceNeutralMessageType.Gray4);
+				case FrameFormat.Gray8: return _messages.Contains(DeviceNeutralMessageType.Gray8);
+				case FrameFormat.Rgb24: return _messages.Contains(DeviceNeutralMessageType.Rgb24);
+				default: return true;
+			}
 		}
 
 		public void ClearDisplay()

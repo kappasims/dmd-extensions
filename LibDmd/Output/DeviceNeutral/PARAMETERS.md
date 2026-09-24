@@ -18,7 +18,7 @@ and the key, and that section isn't used.
 | `length` | when `layout` lists it | `u32le`, `u16le` or `u16be` | How the length field is written. |
 | `panel` | when `layout` lists it | 0 to 255 | The panel field. |
 | `endmarker` | when `layout` lists it | 1 or more bytes in hex | The end marker field. |
-| `messages` | always | `size`, `clear`, `gray2`, `gray4`, `gray8` and `rgb24`, each at most once, with at least one frame message | The messages that are sent. Frames of a depth that isn't listed are dropped. Without `type` in `layout`, exactly one. |
+| `messages` | always | `size`, `clear`, `gray2`, `gray4`, `gray8` and `rgb24`, each at most once, with at least one frame message | The messages that are sent. Frames of a depth that isn't listed are converted to one that is, except that nothing converts to `gray8`. Without `type` in `layout`, exactly one. |
 | `type.size`, `type.clear`, `type.gray2`, `type.gray4`, `type.gray8`, `type.rgb24` | when `layout` lists `type` and `messages` lists the message | 1 byte in hex, such as `80`, different for each message | The type field of each message. |
 | `colororder` | when `messages` lists `rgb24` | `rgb` or `rbg` | The channel order of `Rgb24` frames. `rbg` swaps green and blue. |
 | `fixedsize` | always | `none`, or a size such as `128x32` | With a size, dmd-extensions scales every frame to it. With `none`, frames are sent at their own size. |
