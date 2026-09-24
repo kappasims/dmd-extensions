@@ -2,6 +2,7 @@
 using System.Linq;
 using FluentAssertions;
 using LibDmd.Frame;
+using LibDmd.Output;
 using LibDmd.Output.DeviceNeutral;
 using LibDmd.Test.Stubs;
 using NUnit.Framework;
@@ -116,6 +117,38 @@ namespace LibDmd.Test
 			var frame = messages.FindIndex(IsFrame);
 			frame.Should().BeGreaterThan(0);
 			messages.Take(frame).Should().Contain(m => m[0] == (byte)DeviceNeutralMessageType.Size);
+		}
+
+		[TestCase]
+		public void Should_Write_Connect_Bytes_First()
+		{
+			_destination = new DeviceNeutralDestination(_transport, new DeviceNeutralMessageWriter(new byte[0]), Panel, new byte[] { 0xEF });
+
+			_destination.RenderGray4(new DmdFrame(128, 32, 4));
+
+			_transport.Writes.First().Should().Equal(0xEF);
+		}
+
+		[TestCase]
+		public void Should_Write_Connect_Bytes_Again_After_Reconnecting()
+		{
+			_destination = new DeviceNeutralDestination(_transport, new DeviceNeutralMessageWriter(new byte[0]), Panel, new byte[] { 0xEF });
+
+			_destination.RenderGray4(new DmdFrame(128, 32, 4));
+			var before = _transport.Writes.Length;
+			_transport.FailNextWrite = true;
+			_destination.RenderGray4(new DmdFrame(128, 32, 4));
+			_destination.RenderGray4(new DmdFrame(128, 32, 4));
+
+			_transport.Writes.Skip(before).Should().Contain(w => w.Length == 1 && w[0] == 0xEF);
+		}
+
+		[TestCase]
+		public void Should_Report_Fixed_Size()
+		{
+			_destination = new FixedSizeDeviceNeutralDestination(_transport, new DeviceNeutralMessageWriter(new byte[0]), Panel, new byte[0], new Dimensions(128, 32));
+
+			(_destination as IFixedSizeDestination).FixedSize.Should().Be(new Dimensions(128, 32));
 		}
 
 		private void Create()

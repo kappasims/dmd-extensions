@@ -11,6 +11,7 @@ using System.Windows.Media;
 using IniParser;
 using IniParser.Model;
 using LibDmd.Common;
+using LibDmd.Frame;
 using LibDmd.Input;
 using LibDmd.Output.DeviceNeutral;
 using LibDmd.Output.Virtual.AlphaNumeric;
@@ -381,6 +382,13 @@ namespace LibDmd.DmdDevice
 		public int BaudRate => GetInt("baudrate", DeviceNeutralSerialTransport.DefaultBaudRate);
 		public byte[] StartMarker => GetHexBytes("startmarker", DeviceNeutralMessageWriter.DefaultStartMarker);
 		public int Panel => GetInt("panel", 0);
+		public DeviceNeutralMessageField[] Layout => GetLayout("layout", DeviceNeutralMessageWriter.DefaultLayout);
+		public byte[] EndMarker => GetHexBytes("endmarker", new byte[0]);
+		public DeviceNeutralLengthFormat Length => GetLengthFormat("length", DeviceNeutralLengthFormat.UInt32LittleEndian);
+		public IReadOnlyDictionary<DeviceNeutralMessageType, byte> TypeBytes => GetTypeBytes();
+		public Dimensions FixedSize => GetDimensions("fixedsize", Dimensions.Dynamic);
+		public ColorMatrix ColorOrder => GetEnum("colororder", ColorMatrix.Rgb);
+		public byte[] Connect => GetHexBytes("connect", new byte[0]);
 		public DeviceNeutralConfig(IniData data, Configuration parent, string name) : base(data, parent)
 		{
 			Name = name;
@@ -394,6 +402,99 @@ namespace LibDmd.DmdDevice
 		{
 			return string.Equals(name, "deviceneutral", StringComparison.OrdinalIgnoreCase)
 			       || name.StartsWith("deviceneutral.", StringComparison.OrdinalIgnoreCase);
+		}
+
+		private static readonly Dictionary<string, DeviceNeutralMessageField> LayoutFields = new Dictionary<string, DeviceNeutralMessageField>(StringComparer.OrdinalIgnoreCase) {
+			{ "startmarker", DeviceNeutralMessageField.StartMarker },
+			{ "length", DeviceNeutralMessageField.Length },
+			{ "type", DeviceNeutralMessageField.Type },
+			{ "panel", DeviceNeutralMessageField.Panel },
+			{ "content", DeviceNeutralMessageField.Content },
+			{ "endmarker", DeviceNeutralMessageField.EndMarker },
+		};
+
+		private static readonly Dictionary<string, DeviceNeutralLengthFormat> LengthFormats = new Dictionary<string, DeviceNeutralLengthFormat>(StringComparer.OrdinalIgnoreCase) {
+			{ "u32le", DeviceNeutralLengthFormat.UInt32LittleEndian },
+			{ "u16le", DeviceNeutralLengthFormat.UInt16LittleEndian },
+			{ "u16be", DeviceNeutralLengthFormat.UInt16BigEndian },
+			{ "none", DeviceNeutralLengthFormat.None },
+		};
+
+		private static readonly Dictionary<string, DeviceNeutralMessageType> TypeKeys = new Dictionary<string, DeviceNeutralMessageType> {
+			{ "type.size", DeviceNeutralMessageType.Size },
+			{ "type.clear", DeviceNeutralMessageType.Clear },
+			{ "type.gray2", DeviceNeutralMessageType.Gray2 },
+			{ "type.gray4", DeviceNeutralMessageType.Gray4 },
+			{ "type.gray8", DeviceNeutralMessageType.Gray8 },
+			{ "type.rgb24", DeviceNeutralMessageType.Rgb24 },
+		};
+
+		private DeviceNeutralMessageField[] GetLayout(string key, DeviceNeutralMessageField[] fallback)
+		{
+			var value = GetString(key, null);
+			if (string.IsNullOrWhiteSpace(value)) {
+				return fallback;
+			}
+			var fields = new List<DeviceNeutralMessageField>();
+			foreach (var token in value.Split(new[] { ' ', '	' }, StringSplitOptions.RemoveEmptyEntries)) {
+				if (!LayoutFields.TryGetValue(token, out var field) || fields.Contains(field)) {
+					fields.Clear();
+					break;
+				}
+				fields.Add(field);
+			}
+			if (!fields.Contains(DeviceNeutralMessageField.Content)) {
+				Logger.Error("Value \"" + value + "\" for \"" + key + "\" under [" + Name + "] must list each of startmarker, length, type, panel, content and endmarker at most once, and must include content.");
+				return fallback;
+			}
+			return fields.ToArray();
+		}
+
+		private DeviceNeutralLengthFormat GetLengthFormat(string key, DeviceNeutralLengthFormat fallback)
+		{
+			var value = GetString(key, null);
+			if (string.IsNullOrWhiteSpace(value)) {
+				return fallback;
+			}
+			if (!LengthFormats.TryGetValue(value.Trim(), out var format)) {
+				Logger.Error("Value \"" + value + "\" for \"" + key + "\" under [" + Name + "] must be one of u32le, u16le, u16be or none.");
+				return fallback;
+			}
+			return format;
+		}
+
+		private IReadOnlyDictionary<DeviceNeutralMessageType, byte> GetTypeBytes()
+		{
+			var typeBytes = new Dictionary<DeviceNeutralMessageType, byte>();
+			foreach (var typeKey in TypeKeys) {
+				var bytes = GetHexBytes(typeKey.Key, null);
+				if (bytes == null) {
+					continue;
+				}
+				if (bytes.Length != 1) {
+					Logger.Error("Value for \"" + typeKey.Key + "\" under [" + Name + "] must be a single byte in hex, e.g. \"80\".");
+					continue;
+				}
+				typeBytes[typeKey.Value] = bytes[0];
+			}
+			return typeBytes;
+		}
+
+		private Dimensions GetDimensions(string key, Dimensions fallback)
+		{
+			var value = GetString(key, null);
+			if (string.IsNullOrWhiteSpace(value)) {
+				return fallback;
+			}
+			var parts = value.Split('x', 'X');
+			if (parts.Length != 2
+			    || !int.TryParse(parts[0].Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var width)
+			    || !int.TryParse(parts[1].Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var height)
+			    || width == 0 || height == 0) {
+				Logger.Error("Value \"" + value + "\" for \"" + key + "\" under [" + Name + "] must be a width and height, e.g. \"128x32\".");
+				return fallback;
+			}
+			return new Dimensions(width, height);
 		}
 
 		private byte[] GetHexBytes(string key, byte[] fallback)

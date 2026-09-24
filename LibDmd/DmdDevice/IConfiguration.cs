@@ -1,7 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Windows.Media;
+using LibDmd.Frame;
 using LibDmd.Input;
 using LibDmd.Common;
+using LibDmd.Output.DeviceNeutral;
 using LibDmd.Output.Virtual.AlphaNumeric;
 using LibDmd.Output.Virtual.Dmd;
 
@@ -104,6 +106,13 @@ namespace LibDmd.DmdDevice
 		int BaudRate { get; }
 		byte[] StartMarker { get; }
 		int Panel { get; }
+		DeviceNeutralMessageField[] Layout { get; }
+		byte[] EndMarker { get; }
+		DeviceNeutralLengthFormat Length { get; }
+		IReadOnlyDictionary<DeviceNeutralMessageType, byte> TypeBytes { get; }
+		Dimensions FixedSize { get; }
+		ColorMatrix ColorOrder { get; }
+		byte[] Connect { get; }
 	}
 
 	public interface IVirtualDmdConfig

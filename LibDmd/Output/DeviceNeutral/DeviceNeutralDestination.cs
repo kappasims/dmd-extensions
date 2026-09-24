@@ -35,6 +35,7 @@ namespace LibDmd.Output.DeviceNeutral
 		private readonly IDeviceNeutralTransport _transport;
 		private readonly DeviceNeutralMessageWriter _writer;
 		private readonly byte _panel;
+		private readonly byte[] _connectBytes;
 		private readonly object _lock = new object();
 		private readonly Timer _timer;
 
@@ -42,20 +43,34 @@ namespace LibDmd.Output.DeviceNeutral
 		private bool _hasSize;
 		private bool _sizeSent;
 		private bool _disposed;
+		private bool _encodeWarned;
 
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="DeviceNeutralDestination"/> class.
+		/// Initializes a new instance of the <see cref="DeviceNeutralDestination"/> class that sends the documented format.
 		/// </summary>
 		/// <param name="transport">The connection to the receiver. The destination disposes it.</param>
 		/// <param name="startMarker">The bytes written before each message. Can be empty.</param>
 		/// <param name="panel">The index of the panel that this destination addresses.</param>
 		public DeviceNeutralDestination(IDeviceNeutralTransport transport, byte[] startMarker, byte panel)
+			: this(transport, new DeviceNeutralMessageWriter(startMarker), panel, new byte[0])
+		{
+		}
+
+		/// <summary>
+		/// Initializes a new instance of the <see cref="DeviceNeutralDestination"/> class with the given protocol parameters.
+		/// </summary>
+		/// <param name="transport">The connection to the receiver. The destination disposes it.</param>
+		/// <param name="writer">The encoder, set up with the protocol parameters.</param>
+		/// <param name="panel">The index of the panel that this destination addresses.</param>
+		/// <param name="connectBytes">The bytes written once each time a connection opens. Can be empty.</param>
+		public DeviceNeutralDestination(IDeviceNeutralTransport transport, DeviceNeutralMessageWriter writer, byte panel, byte[] connectBytes)
 		{
 			_transport = transport;
-			_writer = new DeviceNeutralMessageWriter(startMarker);
+			_writer = writer;
 			_panel = panel;
+			_connectBytes = connectBytes;
 			_timer = new Timer(Tick, null, 0, TickMs);
 		}
 
@@ -83,7 +98,7 @@ namespace LibDmd.Output.DeviceNeutral
 		{
 			lock (_lock) {
 				if (!_disposed && _transport.IsConnected) {
-					Write(_writer.Clear(_panel));
+					Write(_writer.Clear(_panel), DeviceNeutralMessageType.Clear);
 				}
 			}
 		}
@@ -130,10 +145,7 @@ namespace LibDmd.Output.DeviceNeutral
 				if (!_sizeSent) {
 					SendSize();
 				}
-				var message = _writer.Frame(type, _panel, frame);
-				if (message.Count > 0) {
-					Write(message);
-				}
+				Write(_writer.Frame(type, _panel, frame), type);
 			}
 		}
 
@@ -156,16 +168,26 @@ namespace LibDmd.Output.DeviceNeutral
 			}
 			Logger.Info("[deviceneutral] Connected to {0}.", _transport.Description);
 			_sizeSent = false;
+			if (_connectBytes.Length > 0) {
+				return _transport.Write(_connectBytes, 0, _connectBytes.Length);
+			}
 			return true;
 		}
 
 		private void SendSize()
 		{
-			_sizeSent = Write(_writer.Size(_panel, _size));
+			_sizeSent = Write(_writer.Size(_panel, _size), DeviceNeutralMessageType.Size);
 		}
 
-		private bool Write(ArraySegment<byte> message)
+		private bool Write(ArraySegment<byte> message, DeviceNeutralMessageType type)
 		{
+			if (message.Count == 0) {
+				if (!_encodeWarned) {
+					Logger.Warn("[deviceneutral] Could not encode a {0} message, skipping. Check that the frame fits the configured length format.", type);
+					_encodeWarned = true;
+				}
+				return false;
+			}
 			return _transport.Write(message.Array, message.Offset, message.Count);
 		}
 	}

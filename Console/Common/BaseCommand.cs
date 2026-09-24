@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using LibDmd;
 using LibDmd.Common;
 using LibDmd.DmdDevice;
+using LibDmd.Frame;
 using LibDmd.Output;
 using LibDmd.Output.DeviceNeutral;
 using LibDmd.Output.FileOutput;
@@ -196,7 +197,11 @@ namespace DmdExt.Common
 
 				} else {
 					var transport = new DeviceNeutralSerialTransport(deviceNeutralConfig.Port, deviceNeutralConfig.BaudRate);
-					var deviceNeutral = new DeviceNeutralDestination(transport, deviceNeutralConfig.StartMarker, (byte)deviceNeutralConfig.Panel);
+					var writer = new DeviceNeutralMessageWriter(deviceNeutralConfig.Layout, deviceNeutralConfig.StartMarker, deviceNeutralConfig.EndMarker, deviceNeutralConfig.Length, deviceNeutralConfig.TypeBytes, deviceNeutralConfig.ColorOrder);
+					var fixedSize = deviceNeutralConfig.FixedSize;
+					var deviceNeutral = fixedSize == Dimensions.Dynamic
+						? new DeviceNeutralDestination(transport, writer, (byte)deviceNeutralConfig.Panel, deviceNeutralConfig.Connect)
+						: new FixedSizeDeviceNeutralDestination(transport, writer, (byte)deviceNeutralConfig.Panel, deviceNeutralConfig.Connect, fixedSize);
 					renderers.Add(deviceNeutral);
 					Logger.Info("Added device-neutral renderer [{0}] on {1}.", deviceNeutralConfig.Name, transport.Description);
 					reportingTags.Add("Out:DeviceNeutral");

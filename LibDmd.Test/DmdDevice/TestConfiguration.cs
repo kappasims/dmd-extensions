@@ -2,7 +2,9 @@
 using System.Windows.Media;
 using LibDmd.Common;
 using LibDmd.DmdDevice;
+using LibDmd.Frame;
 using LibDmd.Input;
+using LibDmd.Output.DeviceNeutral;
 using LibDmd.Output.Virtual.AlphaNumeric;
 using LibDmd.Output.Virtual.Dmd;
 
@@ -140,6 +142,13 @@ namespace LibDmd.Test
 		public int BaudRate { get; set; }
 		public byte[] StartMarker { get; set; }
 		public int Panel { get; set; }
+		public DeviceNeutralMessageField[] Layout { get; set; }
+		public byte[] EndMarker { get; set; }
+		public DeviceNeutralLengthFormat Length { get; set; }
+		public IReadOnlyDictionary<DeviceNeutralMessageType, byte> TypeBytes { get; set; }
+		public Dimensions FixedSize { get; set; }
+		public ColorMatrix ColorOrder { get; set; }
+		public byte[] Connect { get; set; }
 	}
 
 	public class TestVideoConfig : IVideoConfig

@@ -3,6 +3,7 @@ using System.Windows.Media;
 using CommandLine;
 using LibDmd.Common;
 using LibDmd.DmdDevice;
+using LibDmd.Frame;
 using LibDmd.Input;
 using LibDmd.Output.DeviceNeutral;
 using LibDmd.Output.Virtual.AlphaNumeric;
@@ -489,6 +490,13 @@ namespace DmdExt.Common
 		public int BaudRate => DeviceNeutralSerialTransport.DefaultBaudRate;
 		public byte[] StartMarker => DeviceNeutralMessageWriter.DefaultStartMarker;
 		public int Panel => 0;
+		public DeviceNeutralMessageField[] Layout => DeviceNeutralMessageWriter.DefaultLayout;
+		public byte[] EndMarker => new byte[0];
+		public DeviceNeutralLengthFormat Length => DeviceNeutralLengthFormat.UInt32LittleEndian;
+		public IReadOnlyDictionary<DeviceNeutralMessageType, byte> TypeBytes => new Dictionary<DeviceNeutralMessageType, byte>();
+		public Dimensions FixedSize => Dimensions.Dynamic;
+		public ColorMatrix ColorOrder => ColorMatrix.Rgb;
+		public byte[] Connect => new byte[0];
 	}
 
 	internal class VideoOptions : IVideoConfig
