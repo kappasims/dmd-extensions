@@ -67,7 +67,9 @@ fully lit.
 ### Types
 
 Each message that `messages` lists gets its own type byte, and no two can share one. A frame of a
-depth that isn't listed is dropped.
+depth that isn't listed is converted to `Rgb24`, `Gray4` or `Gray2`, the first of those that
+`messages` lists, with the color or palette set on the destination. Nothing converts to `Gray8`, so
+a section that lists only `gray8` gets only `Gray8` frames.
 
 If `layout` doesn't list `type`, nothing tells messages apart, so `messages` must list exactly one.
 A receiver that takes only `Rgb24` frames at one size, for example, needs neither a type byte nor
