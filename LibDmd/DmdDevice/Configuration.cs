@@ -230,8 +230,6 @@ namespace LibDmd.DmdDevice
 					var scalerMode = GetEnum($"plugin.{i}.scalermode", ScalerMode.Doubler);
 					if (path != null) {
 						plugins.Add(new PluginConfig(path, passthrough, scalerMode));
-					} else {
-						break;
 					}
 				}
 				return plugins.ToArray();
