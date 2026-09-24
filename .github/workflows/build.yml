@@ -113,7 +113,9 @@ jobs:
                   if ($tag) { $version = "$major.$minor.$patch-$tag-r$env:BRANCH_BUILD" }
                   else { $version = "$major.$minor.$patch-r$env:BRANCH_BUILD" }
                 } else {
-                  $version = "$major.$minor.$patch-$($branch.ToUpper())-r$env:BRANCH_BUILD"
+                  # The version becomes part of file and artifact names, which cannot contain these characters.
+                  $safeBranch = $branch.ToUpper() -replace '[<>:"/\\|?*]', '-'
+                  $version = "$major.$minor.$patch-$safeBranch-r$env:BRANCH_BUILD"
                 }
           
                 "version=$version" >> $env:GITHUB_OUTPUT
