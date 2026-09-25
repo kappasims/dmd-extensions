@@ -1,7 +1,10 @@
-﻿using System.Windows.Media;
+﻿using System.Collections.Generic;
+using System.Windows.Media;
 using LibDmd.Common;
 using LibDmd.DmdDevice;
+using LibDmd.Frame;
 using LibDmd.Input;
+using LibDmd.Output.DeviceNeutral;
 using LibDmd.Output.Virtual.AlphaNumeric;
 using LibDmd.Output.Virtual.Dmd;
 
@@ -21,6 +24,7 @@ namespace LibDmd.Test
 		public IZeDMDWiFiConfig ZeDMDHDWiFi { get; set; } = new TestZeDMDWiFiConfig();
 		public IPin2DmdConfig Pin2Dmd { get; set; } = new TestPin2DmdConfig();
 		public IPixelcadeConfig Pixelcade { get; set; } = new TestPixelcadeConfig();
+		public IReadOnlyList<IDeviceNeutralConfig> DeviceNeutralDestinations { get; set; } = new IDeviceNeutralConfig[0];
 		public IVideoConfig Video { get; set; } = new TestVideoConfig();
 		public IGifConfig Gif { get; set; } = new TestGifConfig();
 		public IBitmapConfig Bitmap { get; set; } = new TestBitmapConfig();
@@ -128,6 +132,30 @@ namespace LibDmd.Test
 		public bool Enabled { get; set; }
 		public string Port { get; set; }
 		public ColorMatrix ColorMatrix { get; set; }
+	}
+
+	public class TestDeviceNeutralConfig : IDeviceNeutralConfig
+	{
+		public string Name { get; set; } = "deviceneutral";
+		public bool Enabled { get; set; }
+		public DeviceNeutralSerialPort Port { get; set; }
+		public string Pipe { get; set; }
+		public int BaudRate { get; set; }
+		public DeviceNeutralMessageField[] Layout { get; set; }
+		public byte[] StartMarker { get; set; }
+		public DeviceNeutralLengthFormat Length { get; set; }
+		public byte Panel { get; set; }
+		public byte[] EndMarker { get; set; }
+		public IReadOnlyCollection<DeviceNeutralMessageType> Messages { get; set; }
+		public IReadOnlyDictionary<DeviceNeutralMessageType, byte> TypeBytes { get; set; }
+		public ColorMatrix ColorOrder { get; set; }
+		public Dimensions FixedSize { get; set; }
+		public byte[] Connect { get; set; }
+
+		public IReadOnlyList<string> Validate()
+		{
+			return new string[0];
+		}
 	}
 
 	public class TestVideoConfig : IVideoConfig

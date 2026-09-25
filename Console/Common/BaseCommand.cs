@@ -5,7 +5,9 @@ using System.Windows.Threading;
 using LibDmd;
 using LibDmd.Common;
 using LibDmd.DmdDevice;
+using LibDmd.Frame;
 using LibDmd.Output;
+using LibDmd.Output.DeviceNeutral;
 using LibDmd.Output.FileOutput;
 using LibDmd.Output.Network;
 using LibDmd.Output.Pin2Dmd;
@@ -183,6 +185,33 @@ namespace DmdExt.Common
 					Analytics.Instance.AddDestination(pixelcade);
 				} else {
 					Logger.Warn("Device Pixelcade is not available.");
+				}
+			}
+
+			foreach (var deviceNeutralConfig in config.DeviceNeutralDestinations) {
+				if (!deviceNeutralConfig.Enabled) {
+					continue;
+				}
+				var errors = deviceNeutralConfig.Validate();
+				if (errors.Count > 0) {
+					foreach (var error in errors) {
+						Logger.Error(error);
+					}
+					Logger.Warn("[{0}] Enabled but not fully configured, skipping.", deviceNeutralConfig.Name);
+
+				} else {
+					var transport = string.IsNullOrWhiteSpace(deviceNeutralConfig.Pipe)
+						? (IDeviceNeutralTransport)new DeviceNeutralSerialTransport(deviceNeutralConfig.Port, deviceNeutralConfig.BaudRate)
+						: new DeviceNeutralNamedPipeTransport(deviceNeutralConfig.Pipe);
+					var writer = new DeviceNeutralMessageWriter(deviceNeutralConfig.Layout, deviceNeutralConfig.StartMarker, deviceNeutralConfig.EndMarker, deviceNeutralConfig.Length, deviceNeutralConfig.TypeBytes, deviceNeutralConfig.ColorOrder);
+					var fixedSize = deviceNeutralConfig.FixedSize;
+					var deviceNeutral = fixedSize == Dimensions.Dynamic
+						? new DeviceNeutralDestination(transport, writer, deviceNeutralConfig.Panel, deviceNeutralConfig.Connect, deviceNeutralConfig.Messages)
+						: new FixedSizeDeviceNeutralDestination(transport, writer, deviceNeutralConfig.Panel, deviceNeutralConfig.Connect, deviceNeutralConfig.Messages, fixedSize);
+					renderers.Add(deviceNeutral);
+					Logger.Info("Added device-neutral renderer [{0}] on {1}.", deviceNeutralConfig.Name, transport.Description);
+					reportingTags.Add("Out:DeviceNeutral");
+					Analytics.Instance.AddDestination(deviceNeutral);
 				}
 			}
 
