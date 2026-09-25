@@ -6,9 +6,7 @@ using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Reflection;
 using System.Windows.Media;
-using IniParser;
 using IniParser.Model;
 using LibDmd.Common;
 using LibDmd.Input;
@@ -63,66 +61,52 @@ namespace LibDmd.DmdDevice
 			// errors are only logged, and we fall back to defaults.
 		}
 
-		private readonly string _iniPath;
-		private readonly FileIniDataParser _parser;
+		private readonly IConfigurationSource _source;
 		private IniData _data;
 		private string _gameName;
 
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 		private IDisposable _saveSubscription;
 
-		public Configuration(string iniPath = null)
+		public Configuration(string iniPath = null) : this(new FileConfigurationSource(iniPath))
 		{
-			var envConfigPath = GetEnvConfigPath();
-			if (iniPath != null) {
-				if (!File.Exists(iniPath)) {
-					throw new IniNotFoundException(iniPath);
-				}
-				_iniPath = iniPath;
+		}
 
-			} else if (envConfigPath != null) {
-				_iniPath = envConfigPath;
-
-			} else {
-				var assemblyPath = Path.GetDirectoryName(new Uri(Assembly.GetExecutingAssembly().CodeBase).LocalPath);
-				_iniPath = Path.Combine(assemblyPath, "DmdDevice.ini");
-			}
-			_parser = new FileIniDataParser();
-			_parser.Parser.Configuration.AllowDuplicateSections = true;
-			_parser.Parser.Configuration.AllowDuplicateKeys = true;
-
+		/// <summary>
+		/// Initializes a new instance of the <see cref="Configuration"/> class with the ini data of a source.
+		/// </summary>
+		/// <param name="source">Where the ini data is loaded from and saved to.</param>
+		public Configuration(IConfigurationSource source)
+		{
+			_source = source;
 			try {
-				if (File.Exists(_iniPath)) {
-					_data = _parser.ReadFile(_iniPath);
-					Logger.Info("Successfully loaded config from {0}.", _iniPath);
+				if (_source.HasIniData) {
+					_data = _source.LoadIniData();
+					Logger.Info("Successfully loaded config from {0}.", _source.Path);
 
 				} else {
-					Logger.Warn("No DmdDevice.ini found at {0}, falling back to default values.", _iniPath);
+					Logger.Warn("No DmdDevice.ini found at {0}, falling back to default values.", _source.Path);
 					_data = new IniData();
 				}
 
 			} catch (Exception e) {
-				Logger.Error(e, "Error parsing .ini file at {0}: {1}", _iniPath, e.Message);
+				Logger.Error(e, "Error parsing .ini file at {0}: {1}", _source.Path, e.Message);
 				_data = new IniData();
 			}
 			SetupConfig();
-
-			var dataPath = Path.Combine(Path.GetDirectoryName(_iniPath), "dmdext");
-			if (Directory.Exists(dataPath)) {
-				DataPath = dataPath;
-			}
+			DataPath = _source.DataPath;
 		}
 
 		public void Reload()
 		{
 			try {
-				if (!string.IsNullOrEmpty(_iniPath) && File.Exists(_iniPath)) {
-					Logger.Info("Reloading config from {0}.", _iniPath);
-					_data = _parser.ReadFile(_iniPath);
+				if (_source.HasIniData) {
+					Logger.Info("Reloading config from {0}.", _source.Path);
+					_data = _source.LoadIniData();
 					SetupConfig();
 				}
 			} catch (Exception e) {
-				Logger.Error(e, "Error parsing .ini file at {0}: {1}", _iniPath, e.Message);
+				Logger.Error(e, "Error parsing .ini file at {0}: {1}", _source.Path, e.Message);
 				_data = new IniData();
 			}
 		}
@@ -154,9 +138,9 @@ namespace LibDmd.DmdDevice
 
 			_saveSubscription?.Dispose();
 			_saveSubscription = _onSave.Throttle(TimeSpan.FromMilliseconds(500)).Subscribe(_ => {
-				Logger.Info("Saving config to {0}", _iniPath);
+				Logger.Info("Saving config to {0}", _source.Path);
 				try {
-					_parser.WriteFile(_iniPath, _data);
+					_source.SaveIniData(_data);
 
 				} catch (Exception e) {
 					Logger.Error("Error writing to file: {0}", e.Message);
@@ -166,7 +150,7 @@ namespace LibDmd.DmdDevice
 
 		public void Save()
 		{
-			Logger.Info("Scheduling configuration save to {0}", _iniPath);
+			Logger.Info("Scheduling configuration save to {0}", _source.Path);
 			_onSave.OnNext(Unit.Default);
 		}
 
@@ -246,8 +230,6 @@ namespace LibDmd.DmdDevice
 					var scalerMode = GetEnum($"plugin.{i}.scalermode", ScalerMode.Doubler);
 					if (path != null) {
 						plugins.Add(new PluginConfig(path, passthrough, scalerMode));
-					} else {
-						break;
 					}
 				}
 				return plugins.ToArray();
