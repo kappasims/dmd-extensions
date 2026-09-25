@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using LibDmd.Common;
+using LibDmd.DmdDevice;
 using LibDmd.Input;
 using LibDmd.Output.Virtual.AlphaNumeric;
 
@@ -406,6 +407,17 @@ namespace DmdExt.Validate
 			{ "enabled", IniKey.Boolean }, { "path", IniKey.String }, { "scaletohd", UnusedBoolean },
 		};
 
+		// Apart from enabled, DeviceNeutralConfig.Validate checks these values, so they're read as strings here.
+		private static readonly Dictionary<string, IniKey> DeviceNeutralKeys = new Dictionary<string, IniKey> {
+			{ "enabled", IniKey.Boolean }, { "port", IniKey.String }, { "pipe", IniKey.String }, { "baudrate", IniKey.String },
+			{ "layout", IniKey.String }, { "startmarker", IniKey.String }, { "length", IniKey.String }, { "panel", IniKey.String }, { "endmarker", IniKey.String },
+			{ "messages", IniKey.String }, { "type.size", IniKey.String }, { "type.clear", IniKey.String }, { "type.gray2", IniKey.String },
+			{ "type.gray4", IniKey.String }, { "type.gray8", IniKey.String }, { "type.rgb24", IniKey.String },
+			{ "colororder", IniKey.String }, { "fixedsize", IniKey.String }, { "connect", IniKey.String },
+		};
+
+		private static readonly Dictionary<string, IniKey> NoKeys = new Dictionary<string, IniKey>();
+
 		private static readonly Dictionary<string, Dictionary<string, IniKey>> FixedKeys = new Dictionary<string, Dictionary<string, IniKey>> {
 			{ "global", new Dictionary<string, IniKey> {
 				{ "resize", new IniKey(IniKind.Enum, typeof(ResizeMode)) },
@@ -457,12 +469,22 @@ namespace DmdExt.Validate
 		};
 
 		/// <summary>
-		/// Gets the names of the sections that have keys here.
+		/// Gets the names of the sections that have keys here, apart from the device-neutral sections, whose names are chosen in the ini.
 		/// </summary>
 		public static IEnumerable<string> Sections {
 			get {
 				return FixedKeys.Keys;
 			}
+		}
+
+		/// <summary>
+		/// Returns whether the keys of a section are known here.
+		/// </summary>
+		/// <param name="section">The section name.</param>
+		/// <returns><see langword="true"/> for a section in <see cref="Sections"/> or a device-neutral section; otherwise, <see langword="false"/>.</returns>
+		public static bool HasKeys(string section)
+		{
+			return FindSectionKeys(section) != NoKeys;
 		}
 
 		/// <summary>
@@ -472,7 +494,7 @@ namespace DmdExt.Validate
 		/// <returns>The key names, or an empty sequence for an unknown section.</returns>
 		public static IEnumerable<string> ListFixedKeys(string section)
 		{
-			return FixedKeys.TryGetValue(section, out var keys) ? keys.Keys : Enumerable.Empty<string>();
+			return FindSectionKeys(section).Keys;
 		}
 
 		/// <summary>
@@ -483,10 +505,18 @@ namespace DmdExt.Validate
 		/// <returns>How the key is read, with <see cref="IniKey.Unread"/> if DmdDevice never reads it.</returns>
 		public static IniKeyReading ReadKey(string section, string key)
 		{
-			if (FixedKeys.TryGetValue(section, out var keys) && keys.TryGetValue(key, out var fixedKey)) {
+			if (FindSectionKeys(section).TryGetValue(key, out var fixedKey)) {
 				return new IniKeyReading(fixedKey);
 			}
 			return KeyFamilies.TryGetValue(section, out var family) ? family.ReadKey(key) : new IniKeyReading(IniKey.Unread);
+		}
+
+		private static Dictionary<string, IniKey> FindSectionKeys(string section)
+		{
+			if (DeviceNeutralConfig.IsSection(section)) {
+				return DeviceNeutralKeys;
+			}
+			return FixedKeys.TryGetValue(section, out var keys) ? keys : NoKeys;
 		}
 	}
 }

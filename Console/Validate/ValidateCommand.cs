@@ -29,15 +29,54 @@ namespace DmdExt.Validate
 				return 1;
 			}
 
-			var issues = new IniValidator(ListSectionNames()).Validate(File.ReadAllLines(path));
-			foreach (var issue in issues) {
+			var lines = File.ReadAllLines(path);
+			IniReport report;
+			using (LogManager.SuspendLogging()) {
+				report = new IniValidator(ListSectionNames(), ListDeviceNeutralDestinations(path, lines)).Validate(lines);
+			}
+			foreach (var issue in report.Issues) {
 				var severity = issue.Severity == IniSeverity.Error ? "error" : "warning";
 				var where = issue.Section == null ? "" : issue.Key == null ? $"[{issue.Section}] " : $"[{issue.Section}] {issue.Key}: ";
 				Console.WriteLine($"{path}({issue.Line}): {severity}: {where}{issue.Message}");
 			}
-			var errors = issues.Count(i => i.Severity == IniSeverity.Error);
-			Console.WriteLine($"{path}: {errors} error{(errors == 1 ? "" : "s")}, {issues.Count - errors} warning{(issues.Count - errors == 1 ? "" : "s")}.");
+			if (report.DisabledSections.Count > 0) {
+				if (report.Issues.Count > 0) {
+					Console.WriteLine();
+				}
+				Console.WriteLine("Disabled sections:");
+				foreach (var section in report.DisabledSections) {
+					if (section.Problems.Count == 0) {
+						Console.WriteLine($"{path}({section.Line}): [{section.Section}] is ready to enable.");
+						continue;
+					}
+					Console.WriteLine($"{path}({section.Line}): [{section.Section}] would be skipped if it were enabled:");
+					foreach (var problem in section.Problems) {
+						Console.WriteLine($"  {problem}");
+					}
+				}
+				Console.WriteLine();
+			}
+			var errors = report.Issues.Count(i => i.Severity == IniSeverity.Error);
+			var warnings = report.Issues.Count - errors;
+			Console.WriteLine($"{path}: {errors} error{(errors == 1 ? "" : "s")}, {warnings} warning{(warnings == 1 ? "" : "s")}.");
 			return errors == 0 ? 0 : 1;
+		}
+
+		/// <summary>
+		/// Returns the device-neutral destinations that DmdDevice reads from the lines of an ini.
+		/// </summary>
+		/// <param name="path">The path the lines came from, as it appears in the log.</param>
+		/// <param name="lines">The lines of the ini.</param>
+		/// <returns>A destination for each device-neutral section, or none if DmdDevice fails to load the ini.</returns>
+		public static IReadOnlyList<IDeviceNeutralConfig> ListDeviceNeutralDestinations(string path, IReadOnlyList<string> lines)
+		{
+			try {
+				return new Configuration(new TextConfigurationSource(path, string.Join("\n", lines))).DeviceNeutralDestinations;
+
+			} catch (Exception) {
+				// DmdDevice fails on this ini too, and the line checks report why.
+				return new IDeviceNeutralConfig[0];
+			}
 		}
 
 		/// <summary>
