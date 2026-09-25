@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using LibDmd.DmdDevice;
 
 namespace DmdExt.Validate
 {
@@ -9,38 +10,52 @@ namespace DmdExt.Validate
 	/// </summary>
 	/// <remarks>
 	/// The text is read as an <see cref="IniDocument"/>, and each value is checked with the rules of the getter
-	/// that reads it. A section that isn't one of the configuration sections is treated as a game section.
+	/// that reads it. A device-neutral section is also checked with <see cref="IDeviceNeutralConfig.Validate"/>.
+	/// A section that isn't one of the configuration sections is treated as a game section.
 	/// </remarks>
 	public class IniValidator
 	{
 		private readonly HashSet<string> _sections;
+		private readonly IReadOnlyList<IDeviceNeutralConfig> _deviceNeutralDestinations;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="IniValidator"/> class.
 		/// </summary>
 		/// <param name="sections">The names of the configuration sections.</param>
-		public IniValidator(IEnumerable<string> sections)
+		/// <param name="deviceNeutralDestinations">The device-neutral destinations that DmdDevice reads from the same file.</param>
+		public IniValidator(IEnumerable<string> sections, IReadOnlyList<IDeviceNeutralConfig> deviceNeutralDestinations)
 		{
-			_sections = new HashSet<string>(sections);
+			_sections = new HashSet<string>(sections.Concat(deviceNeutralDestinations.Select(d => d.Name)));
+			_deviceNeutralDestinations = deviceNeutralDestinations;
 		}
 
 		/// <summary>
-		/// Returns the problems in the given lines of DmdDevice.ini.
+		/// Returns the problems in the given lines of DmdDevice.ini, and the device-neutral sections that aren't enabled.
 		/// </summary>
 		/// <param name="lines">The lines of the file.</param>
-		/// <returns>The problems, in line order.</returns>
-		public IReadOnlyList<IniIssue> Validate(IReadOnlyList<string> lines)
+		/// <returns>The report.</returns>
+		public IniReport Validate(IReadOnlyList<string> lines)
 		{
 			var document = new IniDocument(lines);
 			var issues = new List<IniIssue>(document.ReadIssues);
+			var disabledSections = new List<IniDisabledSection>();
 			issues.AddRange(document.ListDuplicateIssues());
 
 			foreach (var header in document.Headers.GroupBy(h => h.Section).Select(g => g.First())) {
 				var sectionEntries = document.Entries.Where(e => e.Section == header.Section).ToList();
-				if (_sections.Contains(header.Section)) {
-					if (IniSchema.Sections.Contains(header.Section)) {
+				if (_sections.Contains(header.Section) || DeviceNeutralConfig.IsSection(header.Section)) {
+					if (IniSchema.HasKeys(header.Section)) {
 						foreach (var entry in sectionEntries) {
 							CheckKey(header.Section, entry.Key, entry, false, issues);
+						}
+					}
+					var destination = _deviceNeutralDestinations.FirstOrDefault(d => d.Name == header.Section);
+					if (destination != null) {
+						var problems = destination.Validate();
+						if (destination.Enabled) {
+							issues.AddRange(problems.Select(p => new IniIssue(header.Line, IniSeverity.Error, header.Section, null, p + " DmdDevice skips this display.")));
+						} else {
+							disabledSections.Add(new IniDisabledSection(header.Line, header.Section, problems));
 						}
 					}
 					continue;
@@ -74,7 +89,7 @@ namespace DmdExt.Validate
 						continue;
 					}
 					var section = entry.Key.Substring(0, space);
-					if (section == "global" || !_sections.Contains(section) || !IniSchema.Sections.Contains(section)) {
+					if (section == "global" || !_sections.Contains(section) || !IniSchema.HasKeys(section)) {
 						issues.Add(new IniIssue(entry.Line, IniSeverity.Warning, entry.Section, entry.Key,
 							"DmdDevice doesn't read this key, so it's ignored. A game section overrides a key of another section as \"<section> <key>\", and a key of [global] without a prefix."));
 						continue;
@@ -85,7 +100,7 @@ namespace DmdExt.Validate
 			issues.AddRange(document.ListPluginIssues());
 			issues.AddRange(document.ListStyleSelectionIssues());
 
-			return issues.OrderBy(i => i.Line).ThenByDescending(i => i.Severity).ToList();
+			return new IniReport(issues.OrderBy(i => i.Line).ThenByDescending(i => i.Severity).ToList(), disabledSections);
 		}
 
 		private static void CheckKey(string section, string key, IniEntry entry, bool inGameSection, List<IniIssue> issues)

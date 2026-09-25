@@ -212,6 +212,7 @@
     <Compile Include="Test\TestOptions.cs" />
     <Compile Include="Validate\IniDocument.cs" />
     <Compile Include="Validate\IniIssue.cs" />
+    <Compile Include="Validate\IniReport.cs" />
     <Compile Include="Validate\IniSchema.cs" />
     <Compile Include="Validate\IniValidator.cs" />
     <Compile Include="Validate\TextConfigurationSource.cs" />

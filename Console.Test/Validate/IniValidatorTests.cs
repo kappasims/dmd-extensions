@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using DmdExt.Validate;
 using FluentAssertions;
+using LibDmd.DmdDevice;
 using NUnit.Framework;
 
 namespace DmdExt.Test
@@ -26,9 +27,11 @@ namespace DmdExt.Test
 				sample = reader.ReadToEnd();
 			}
 
-			var issues = new IniValidator(Sections).Validate(sample.Split('\n').Select(l => l.TrimEnd('\r')).ToList());
+			var lines = sample.Split('\n').Select(l => l.TrimEnd('\r')).ToList();
+			var report = new IniValidator(Sections, ValidateCommand.ListDeviceNeutralDestinations("DmdDevice.ini", lines)).Validate(lines);
 
-			issues.Should().BeEmpty();
+			report.Issues.Should().BeEmpty();
+			report.DisabledSections.Should().ContainSingle().Which.Section.Should().Be("deviceneutral");
 		}
 
 		[TestCase]
@@ -330,9 +333,151 @@ namespace DmdExt.Test
 			issues.Should().ContainSingle().Which.Message.Should().Contain("never uses it");
 		}
 
-		private static IReadOnlyList<IniIssue> Validate(string ini)
+		[TestCase]
+		public void Should_Accept_Device_Neutral_Sections()
 		{
-			return new IniValidator(Sections).Validate(ini.Split('\n').Select(l => l.Trim()).ToList());
+			var issues = Validate(@"
+				[deviceneutral]
+				enabled = true
+				port = COM3
+				baudrate = 921600
+				layout = startmarker length type content
+				startmarker = 44 4E 44 50
+				length = u32le
+				messages = size gray4
+				type.size = 01
+				type.gray4 = 02
+				fixedsize = none
+				connect = none
+				[DeviceNeutral.Backbox]
+				enabled = true
+				pipe = backbox
+				layout = content
+				messages = rgb24
+				colororder = rgb
+				fixedsize = 128x32
+				connect = none
+				[afm_113b]
+				DeviceNeutral.Backbox enabled = false",
+				new TestDeviceNeutralConfig { Enabled = true },
+				new TestDeviceNeutralConfig { Name = "DeviceNeutral.Backbox", Enabled = true });
+
+			issues.Should().BeEmpty();
+		}
+
+		[TestCase]
+		public void Should_Report_A_Problem_In_An_Enabled_Device_Neutral_Section()
+		{
+			var issues = Validate(@"
+				[deviceneutral]
+				enabled = true
+				pipe = panel
+				baudrate = 9600",
+				new TestDeviceNeutralConfig { Enabled = true, Problems = new[] { "\"baudrate\" under [deviceneutral] is set, but only applies to \"port\"." } });
+
+			issues.Should().ContainSingle().Which.Should().Match<IniIssue>(i => i.Severity == IniSeverity.Error && i.Line == 2 && i.Message.Contains("\"baudrate\""));
+		}
+
+		[TestCase]
+		public void Should_List_A_Disabled_Device_Neutral_Section_Apart_From_The_Issues()
+		{
+			var report = ReadReport(@"
+				[deviceneutral]
+				port =",
+				new TestDeviceNeutralConfig { Problems = new[] { "Exactly one of \"port\" and \"pipe\" under [deviceneutral] must be set." } });
+
+			report.Issues.Should().BeEmpty();
+			report.DisabledSections.Should().ContainSingle().Which.Should().Match<IniDisabledSection>(s => s.Line == 2 && s.Section == "deviceneutral" && s.Problems.Count == 1);
+		}
+
+		[TestCase]
+		public void Should_List_A_Disabled_Device_Neutral_Section_That_Is_Ready_To_Enable()
+		{
+			var report = ReadReport(@"
+				[deviceneutral]
+				pipe = panel",
+				new TestDeviceNeutralConfig());
+
+			report.DisabledSections.Should().ContainSingle().Which.Problems.Should().BeEmpty();
+		}
+
+		[TestCase]
+		public void Should_Suggest_A_Device_Neutral_Key_For_A_Typo()
+		{
+			var issues = Validate(@"
+				[deviceneutral.backbox]
+				mesages = gray4",
+				new TestDeviceNeutralConfig { Name = "deviceneutral.backbox" });
+
+			issues.Should().ContainSingle().Which.Message.Should().Contain("Did you mean \"messages\"?");
+		}
+
+		[TestCase]
+		public void Should_Check_The_Keys_Of_A_Device_Neutral_Section_DmdDevice_Could_Not_Load()
+		{
+			var issues = Validate(@"
+				[deviceneutral]
+				enabled = yes");
+
+			issues.Should().ContainSingle().Which.Should().Match<IniIssue>(i => i.Severity == IniSeverity.Error && i.Key == "enabled");
+		}
+
+		[TestCase]
+		public void Should_Report_An_Override_Of_A_Device_Neutral_Section_That_Is_Not_There()
+		{
+			var issues = Validate(@"
+				[afm_113b]
+				deviceneutral.topper enabled = true");
+
+			issues.Should().ContainSingle().Which.Message.Should().Contain("overrides nothing");
+		}
+
+		[TestCase]
+		public void Should_Accept_A_Usb_Id_As_A_Device_Neutral_Port()
+		{
+			var report = ReadReportWithLoadedDestinations(@"
+				[deviceneutral]
+				enabled = true
+				port = usb:2E8A:000A
+				baudrate = 921600
+				layout = content
+				messages = gray4
+				fixedsize = none
+				connect = none");
+
+			report.Issues.Should().BeEmpty();
+		}
+
+		[TestCase]
+		public void Should_Report_An_Invalid_Usb_Id_As_A_Device_Neutral_Port()
+		{
+			var report = ReadReportWithLoadedDestinations(@"
+				[deviceneutral]
+				enabled = true
+				port = usb:2E8A
+				baudrate = 921600
+				layout = content
+				messages = gray4
+				fixedsize = none
+				connect = none");
+
+			report.Issues.Should().ContainSingle().Which.Should().Match<IniIssue>(i => i.Severity == IniSeverity.Error && i.Line == 2 && i.Message.Contains("usb:2E8A"));
+		}
+
+		private static IReadOnlyList<IniIssue> Validate(string ini, params IDeviceNeutralConfig[] deviceNeutralDestinations)
+		{
+			return ReadReport(ini, deviceNeutralDestinations).Issues;
+		}
+
+		private static IniReport ReadReport(string ini, params IDeviceNeutralConfig[] deviceNeutralDestinations)
+		{
+			return new IniValidator(Sections, deviceNeutralDestinations).Validate(ini.Split('\n').Select(l => l.Trim()).ToList());
+		}
+
+		private static IniReport ReadReportWithLoadedDestinations(string ini)
+		{
+			var lines = ini.Split('\n').Select(l => l.Trim()).ToList();
+			return new IniValidator(Sections, ValidateCommand.ListDeviceNeutralDestinations("DmdDevice.ini", lines)).Validate(lines);
 		}
 	}
 }
