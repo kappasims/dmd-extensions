@@ -256,7 +256,7 @@ namespace DmdExt
 				}
 				var envConfigPath = Configuration.GetEnvConfigPath();
 				if (args.Length > i + 1) { // value argument following?
-					if (!args[i + 1].ToLowerInvariant().Contains("dmddevice.ini")) {
+					if (args[i + 1].StartsWith("-")) {
 						if (envConfigPath != null) {
 							args[i] = $"--use-ini={envConfigPath}";
 						}
