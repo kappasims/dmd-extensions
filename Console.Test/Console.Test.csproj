@@ -34,29 +34,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\LibDmd\LibDmd.csproj" />
+		<ProjectReference Include="..\Console\Console.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<Reference Include="PresentationCore" />
-		<Reference Include="INIFileParser">
-			<HintPath>..\packages\ini-parser.2.5.2\lib\net20\INIFileParser.dll</HintPath>
-		</Reference>
-	</ItemGroup>
-
-	<ItemGroup>
-		<Compile Update="Properties\Settings.Designer.cs">
-			<DesignTimeSharedInput>True</DesignTimeSharedInput>
-			<AutoGen>True</AutoGen>
-			<DependentUpon>Settings.settings</DependentUpon>
-		</Compile>
-	</ItemGroup>
-
-	<ItemGroup>
-		<None Update="Properties\Settings.settings">
-			<Generator>SettingsSingleFileGenerator</Generator>
-			<LastGenOutput>Settings.Designer.cs</LastGenOutput>
-		</None>
+		<EmbeddedResource Include="..\PinMameDevice\DmdDevice.ini" LogicalName="DmdDevice.ini" />
 	</ItemGroup>
 
 </Project>
