@@ -510,10 +510,11 @@ dmdext test --format gray2
 
 The `validate` command checks a `DmdDevice.ini` without starting anything, and reports settings that DmdDevice
 rejects or ignores: a value it can't read, an unknown or misspelled key or section, a repeated key, a plugin after
-a gap in the numbering, and so on. It only takes `--use-ini`, with the same fallback to `DMDDEVICE_CONFIG`, and
-exits with 1 when it finds an error. The last line names the file it checked. A path after `--use-ini` that doesn't
-contain `DmdDevice.ini` is replaced by `DMDDEVICE_CONFIG` when that's set, so pass a file with another name as
-`--use-ini=<path>`.
+a gap in the numbering, a device-neutral section that DmdDevice would skip, and so on. Device-neutral sections that
+aren't enabled are listed on their own, with anything that would keep them from working once enabled. It only takes
+`--use-ini`, with the same fallback to `DMDDEVICE_CONFIG`, and exits with 1 when it finds an error. The last line names
+the file it checked. A path after `--use-ini` that doesn't contain `DmdDevice.ini` is replaced by `DMDDEVICE_CONFIG`
+when that's set, so pass a file with another name as `--use-ini=<path>`.
 
 Examples:
 
