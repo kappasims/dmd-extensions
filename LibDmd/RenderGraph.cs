@@ -329,13 +329,13 @@ namespace LibDmd
 
 				foreach (var dest in Destinations) {
 
-					var destColoredGray2 = dest as IColoredGray2Destination;
-					var destColoredGray4 = dest as IColoredGray4Destination;
-					var destColoredGray6 = dest as IColoredGray6Destination;
-					var destRgb565 = dest as IRgb565Destination;
-					var destRgb24 = dest as IRgb24Destination;
-					var destBitmap = dest as IBitmapDestination;
-					var destAlphaNumeric = dest as IAlphaNumericDestination;
+					var destColoredGray2 = SelectAcceptingDestination<IColoredGray2Destination>(dest, FrameFormat.ColoredGray2);
+					var destColoredGray4 = SelectAcceptingDestination<IColoredGray4Destination>(dest, FrameFormat.ColoredGray4);
+					var destColoredGray6 = SelectAcceptingDestination<IColoredGray6Destination>(dest, FrameFormat.ColoredGray6);
+					var destRgb565 = SelectAcceptingDestination<IRgb565Destination>(dest, FrameFormat.Rgb565);
+					var destRgb24 = SelectAcceptingDestination<IRgb24Destination>(dest, FrameFormat.Rgb24);
+					var destBitmap = SelectAcceptingDestination<IBitmapDestination>(dest, FrameFormat.Bitmap);
+					var destAlphaNumeric = SelectAcceptingDestination<IAlphaNumericDestination>(dest, FrameFormat.AlphaNumeric);
 
 					// So here's how convertors work:
 					// They have multiple input types, given by IConvertor.From, and they can
@@ -496,9 +496,9 @@ namespace LibDmd
 					// conversions, e.g. convert an RGB24 frame to 2-bit for outputs like PinDMD1
 					// that can only render 4 shades.
 
-					var destGray2 = dest as IGray2Destination;
-					var destGray4 = dest as IGray4Destination;
-					var destGray8 = dest as IGray8Destination;
+					var destGray2 = SelectAcceptingDestination<IGray2Destination>(dest, FrameFormat.Gray2);
+					var destGray4 = SelectAcceptingDestination<IGray4Destination>(dest, FrameFormat.Gray4);
+					var destGray8 = SelectAcceptingDestination<IGray8Destination>(dest, FrameFormat.Gray8);
 
 					var sourceColoredGray2 = Source as IColoredGray2Source;
 					var sourceColoredGray4 = Source as IColoredGray4Source;
@@ -774,6 +774,20 @@ namespace LibDmd
 		#endregion
 
 		#region Pipeline Setup
+
+		/// <summary>
+		/// Returns the destination as <typeparamref name="T"/> if it implements it and takes frames in the given format.
+		/// </summary>
+		/// <param name="dest">The destination.</param>
+		/// <param name="format">The frame format that <typeparamref name="T"/> renders.</param>
+		/// <returns>The destination, or <see langword="null"/> if it doesn't implement <typeparamref name="T"/> or turns down <paramref name="format"/>.</returns>
+		private static T SelectAcceptingDestination<T>(IDestination dest, FrameFormat format) where T : class
+		{
+			if (dest is IFrameFormatFilter filter && !filter.Accepts(format)) {
+				return null;
+			}
+			return dest as T;
+		}
 
 		/// <summary>
 		/// Connects a source with a destination and defines in which mode data is
