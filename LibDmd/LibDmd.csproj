@@ -418,6 +418,7 @@
     <Compile Include="Common\AboutDialog.xaml.cs" />
     <Compile Include="Common\CultureUtil.cs" />
     <Compile Include="Common\PathUtil.cs" />
+    <Compile Include="Common\UsbSerialPort.cs" />
     <Compile Include="Converter\AbstractConverter.cs" />
     <Compile Include="Converter\ColorizationLoader.cs" />
     <Compile Include="Converter\Serum\ISerumApi.cs" />
