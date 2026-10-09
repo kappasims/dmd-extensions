@@ -6,12 +6,12 @@ using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Reflection;
 using System.Windows.Media;
-using IniParser;
 using IniParser.Model;
 using LibDmd.Common;
+using LibDmd.Frame;
 using LibDmd.Input;
+using LibDmd.Output.DeviceNeutral;
 using LibDmd.Output.Virtual.AlphaNumeric;
 using LibDmd.Output.Virtual.Dmd;
 using NLog;
@@ -34,6 +34,7 @@ namespace LibDmd.DmdDevice
 		public IZeDMDWiFiConfig ZeDMDHDWiFi { get; private set; }
 		public IPin2DmdConfig Pin2Dmd { get; private set; }
 		public IPixelcadeConfig Pixelcade { get; private set; }
+		public IReadOnlyList<IDeviceNeutralConfig> DeviceNeutralDestinations { get; private set; }
 		public IVideoConfig Video { get; private set; }
 		public IGifConfig Gif { get; private set; }
 		public IBitmapConfig Bitmap { get; private set; }
@@ -63,66 +64,52 @@ namespace LibDmd.DmdDevice
 			// errors are only logged, and we fall back to defaults.
 		}
 
-		private readonly string _iniPath;
-		private readonly FileIniDataParser _parser;
+		private readonly IConfigurationSource _source;
 		private IniData _data;
 		private string _gameName;
 
 		private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 		private IDisposable _saveSubscription;
 
-		public Configuration(string iniPath = null)
+		public Configuration(string iniPath = null) : this(new FileConfigurationSource(iniPath))
 		{
-			var envConfigPath = GetEnvConfigPath();
-			if (iniPath != null) {
-				if (!File.Exists(iniPath)) {
-					throw new IniNotFoundException(iniPath);
-				}
-				_iniPath = iniPath;
+		}
 
-			} else if (envConfigPath != null) {
-				_iniPath = envConfigPath;
-
-			} else {
-				var assemblyPath = Path.GetDirectoryName(new Uri(Assembly.GetExecutingAssembly().CodeBase).LocalPath);
-				_iniPath = Path.Combine(assemblyPath, "DmdDevice.ini");
-			}
-			_parser = new FileIniDataParser();
-			_parser.Parser.Configuration.AllowDuplicateSections = true;
-			_parser.Parser.Configuration.AllowDuplicateKeys = true;
-
+		/// <summary>
+		/// Initializes a new instance of the <see cref="Configuration"/> class with the ini data of a source.
+		/// </summary>
+		/// <param name="source">Where the ini data is loaded from and saved to.</param>
+		public Configuration(IConfigurationSource source)
+		{
+			_source = source;
 			try {
-				if (File.Exists(_iniPath)) {
-					_data = _parser.ReadFile(_iniPath);
-					Logger.Info("Successfully loaded config from {0}.", _iniPath);
+				if (_source.HasIniData) {
+					_data = _source.LoadIniData();
+					Logger.Info("Successfully loaded config from {0}.", _source.Path);
 
 				} else {
-					Logger.Warn("No DmdDevice.ini found at {0}, falling back to default values.", _iniPath);
+					Logger.Warn("No DmdDevice.ini found at {0}, falling back to default values.", _source.Path);
 					_data = new IniData();
 				}
 
 			} catch (Exception e) {
-				Logger.Error(e, "Error parsing .ini file at {0}: {1}", _iniPath, e.Message);
+				Logger.Error(e, "Error parsing .ini file at {0}: {1}", _source.Path, e.Message);
 				_data = new IniData();
 			}
 			SetupConfig();
-
-			var dataPath = Path.Combine(Path.GetDirectoryName(_iniPath), "dmdext");
-			if (Directory.Exists(dataPath)) {
-				DataPath = dataPath;
-			}
+			DataPath = _source.DataPath;
 		}
 
 		public void Reload()
 		{
 			try {
-				if (!string.IsNullOrEmpty(_iniPath) && File.Exists(_iniPath)) {
-					Logger.Info("Reloading config from {0}.", _iniPath);
-					_data = _parser.ReadFile(_iniPath);
+				if (_source.HasIniData) {
+					Logger.Info("Reloading config from {0}.", _source.Path);
+					_data = _source.LoadIniData();
 					SetupConfig();
 				}
 			} catch (Exception e) {
-				Logger.Error(e, "Error parsing .ini file at {0}: {1}", _iniPath, e.Message);
+				Logger.Error(e, "Error parsing .ini file at {0}: {1}", _source.Path, e.Message);
 				_data = new IniData();
 			}
 		}
@@ -143,6 +130,10 @@ namespace LibDmd.DmdDevice
 			ZeDMDHDWiFi = new ZeDMDHDWiFiConfig(_data, this);
 			Pin2Dmd = new Pin2DmdConfig(_data, this);
 			Pixelcade = new PixelcadeConfig(_data, this);
+			DeviceNeutralDestinations = _data.Sections
+				.Where(s => DeviceNeutralConfig.IsSection(s.SectionName))
+				.Select(s => (IDeviceNeutralConfig)new DeviceNeutralConfig(_data, this, s.SectionName))
+				.ToList();
 			Video = new VideoConfig(_data, this);
 			Gif = new GifConfig(_data, this);
 			Bitmap = new BitmapConfig(_data, this);
@@ -154,9 +145,9 @@ namespace LibDmd.DmdDevice
 
 			_saveSubscription?.Dispose();
 			_saveSubscription = _onSave.Throttle(TimeSpan.FromMilliseconds(500)).Subscribe(_ => {
-				Logger.Info("Saving config to {0}", _iniPath);
+				Logger.Info("Saving config to {0}", _source.Path);
 				try {
-					_parser.WriteFile(_iniPath, _data);
+					_source.SaveIniData(_data);
 
 				} catch (Exception e) {
 					Logger.Error("Error writing to file: {0}", e.Message);
@@ -166,7 +157,7 @@ namespace LibDmd.DmdDevice
 
 		public void Save()
 		{
-			Logger.Info("Scheduling configuration save to {0}", _iniPath);
+			Logger.Info("Scheduling configuration save to {0}", _source.Path);
 			_onSave.OnNext(Unit.Default);
 		}
 
@@ -364,6 +355,407 @@ namespace LibDmd.DmdDevice
 		public bool AllowHdScaling => GetBoolean("scaletohd", true);
 		public PixelcadeConfig(IniData data, Configuration parent) : base(data, parent)
 		{
+		}
+	}
+
+	public class DeviceNeutralConfig : AbstractConfiguration, IDeviceNeutralConfig
+	{
+		public override string Name { get; }
+
+		public bool Enabled {
+			get {
+				return GetBoolean("enabled", false);
+			}
+		}
+
+		public DeviceNeutralSerialPort Port {
+			get {
+				var value = GetString("port", null);
+				if (!DeviceNeutralSerialPort.TryParse(value, out var port)) {
+					throw new InvalidOperationException("Value \"" + value + "\" for \"port\" under [" + Name + "] isn't a port.");
+				}
+				return port;
+			}
+		}
+
+		public string Pipe {
+			get {
+				return GetString("pipe", null);
+			}
+		}
+
+		public int BaudRate {
+			get {
+				return ReadBaudRate(null);
+			}
+		}
+
+		public DeviceNeutralMessageField[] Layout {
+			get {
+				return ReadLayout(null);
+			}
+		}
+
+		public byte[] StartMarker {
+			get {
+				return ReadHexBytes("startmarker", null);
+			}
+		}
+
+		public DeviceNeutralLengthFormat Length {
+			get {
+				return ReadLengthFormat(null);
+			}
+		}
+
+		public byte Panel {
+			get {
+				return ReadPanel(null);
+			}
+		}
+
+		public byte[] EndMarker {
+			get {
+				return ReadHexBytes("endmarker", null);
+			}
+		}
+
+		public IReadOnlyCollection<DeviceNeutralMessageType> Messages {
+			get {
+				return ReadMessages(null);
+			}
+		}
+
+		public IReadOnlyDictionary<DeviceNeutralMessageType, byte> TypeBytes {
+			get {
+				return ReadTypeBytes(Messages, null);
+			}
+		}
+
+		public ColorMatrix ColorOrder {
+			get {
+				return ReadColorOrder(null);
+			}
+		}
+
+		public Dimensions FixedSize {
+			get {
+				return ReadFixedSize(null);
+			}
+		}
+
+		public byte[] Connect {
+			get {
+				return ReadConnect(null);
+			}
+		}
+
+		public DeviceNeutralConfig(IniData data, Configuration parent, string name) : base(data, parent)
+		{
+			Name = name;
+		}
+
+		/// <summary>
+		/// Returns whether a section configures a device-neutral destination: <c>[deviceneutral]</c>, or
+		/// <c>[deviceneutral.</c> followed by a name for each additional display.
+		/// </summary>
+		public static bool IsSection(string name)
+		{
+			return string.Equals(name, "deviceneutral", StringComparison.OrdinalIgnoreCase)
+			       || name.StartsWith("deviceneutral.", StringComparison.OrdinalIgnoreCase);
+		}
+
+		private static readonly Dictionary<string, DeviceNeutralMessageField> LayoutFields = new Dictionary<string, DeviceNeutralMessageField>(StringComparer.OrdinalIgnoreCase) {
+			{ "startmarker", DeviceNeutralMessageField.StartMarker },
+			{ "length", DeviceNeutralMessageField.Length },
+			{ "type", DeviceNeutralMessageField.Type },
+			{ "panel", DeviceNeutralMessageField.Panel },
+			{ "content", DeviceNeutralMessageField.Content },
+			{ "endmarker", DeviceNeutralMessageField.EndMarker },
+		};
+
+		private static readonly Dictionary<string, DeviceNeutralLengthFormat> LengthFormats = new Dictionary<string, DeviceNeutralLengthFormat>(StringComparer.OrdinalIgnoreCase) {
+			{ "u32le", DeviceNeutralLengthFormat.UInt32LittleEndian },
+			{ "u16le", DeviceNeutralLengthFormat.UInt16LittleEndian },
+			{ "u16be", DeviceNeutralLengthFormat.UInt16BigEndian },
+		};
+
+		private static readonly Dictionary<string, DeviceNeutralMessageType> MessageNames = new Dictionary<string, DeviceNeutralMessageType>(StringComparer.OrdinalIgnoreCase) {
+			{ "size", DeviceNeutralMessageType.Size },
+			{ "clear", DeviceNeutralMessageType.Clear },
+			{ "gray2", DeviceNeutralMessageType.Gray2 },
+			{ "gray4", DeviceNeutralMessageType.Gray4 },
+			{ "gray8", DeviceNeutralMessageType.Gray8 },
+			{ "rgb24", DeviceNeutralMessageType.Rgb24 },
+		};
+
+		private static readonly Dictionary<string, ColorMatrix> ColorOrders = new Dictionary<string, ColorMatrix>(StringComparer.OrdinalIgnoreCase) {
+			{ "rgb", ColorMatrix.Rgb },
+			{ "rbg", ColorMatrix.Rbg },
+		};
+
+		private static readonly DeviceNeutralMessageType[] FrameMessages = {
+			DeviceNeutralMessageType.Gray2, DeviceNeutralMessageType.Gray4, DeviceNeutralMessageType.Gray8, DeviceNeutralMessageType.Rgb24
+		};
+
+		/// <summary>
+		/// Returns the problems that keep this section from configuring a display.
+		/// </summary>
+		/// <returns>A description of each problem, or an empty list if there are none.</returns>
+		public IReadOnlyList<string> Validate()
+		{
+			var errors = new List<string>();
+			var hasPort = IsSet("port");
+			var hasPipe = IsSet("pipe");
+			if (hasPort == hasPipe) {
+				errors.Add("Exactly one of \"port\" and \"pipe\" under [" + Name + "] must be set.");
+			}
+			if (hasPort) {
+				var port = ReadRequiredValue("port", errors);
+				if (!DeviceNeutralSerialPort.TryParse(port, out var serialPort)) {
+					AddInvalidValueError("port", port, "be a port name, e.g. \"COM4\", or usb: and the display's USB vendor and product ID in hex, e.g. \"usb:2E8A:000A\"", errors);
+				}
+				ReadBaudRate(errors);
+			} else if (hasPipe && IsSet("baudrate")) {
+				errors.Add("\"baudrate\" under [" + Name + "] is set, but only applies to \"port\".");
+			}
+			var layout = ReadLayout(errors);
+			var messages = ReadMessages(errors);
+			ReadFixedSize(errors);
+			ReadConnect(errors);
+
+			if (layout.Length > 0) {
+				if (IsUsed(layout, DeviceNeutralMessageField.StartMarker, "startmarker", errors)) {
+					ReadHexBytes("startmarker", errors);
+				}
+				if (IsUsed(layout, DeviceNeutralMessageField.Length, "length", errors)) {
+					ReadLengthFormat(errors);
+				}
+				if (IsUsed(layout, DeviceNeutralMessageField.Panel, "panel", errors)) {
+					ReadPanel(errors);
+				}
+				if (IsUsed(layout, DeviceNeutralMessageField.EndMarker, "endmarker", errors)) {
+					ReadHexBytes("endmarker", errors);
+				}
+			}
+
+			if (messages.Count > 0) {
+				if (messages.Contains(DeviceNeutralMessageType.Rgb24)) {
+					ReadColorOrder(errors);
+				} else if (IsSet("colororder")) {
+					errors.Add("\"colororder\" under [" + Name + "] is set, but \"messages\" doesn't list rgb24.");
+				}
+			}
+
+			if (layout.Length > 0 && messages.Count > 0) {
+				var hasType = layout.Contains(DeviceNeutralMessageField.Type);
+				if (hasType) {
+					var typeBytes = ReadTypeBytes(messages, errors);
+					if (typeBytes.Values.Distinct().Count() < typeBytes.Count) {
+						errors.Add("The type bytes under [" + Name + "] must differ from each other.");
+					}
+				} else if (messages.Count > 1) {
+					errors.Add("\"messages\" under [" + Name + "] lists more than one message, so \"layout\" must include type.");
+				}
+				foreach (var message in MessageNames) {
+					var key = "type." + message.Key;
+					if (!IsSet(key)) {
+						continue;
+					}
+					if (!hasType) {
+						errors.Add("\"" + key + "\" under [" + Name + "] is set, but \"layout\" doesn't include type.");
+					} else if (!messages.Contains(message.Value)) {
+						errors.Add("\"" + key + "\" under [" + Name + "] is set, but \"messages\" doesn't list " + message.Key + ".");
+					}
+				}
+			}
+			return errors;
+		}
+
+		private bool IsUsed(DeviceNeutralMessageField[] layout, DeviceNeutralMessageField field, string key, List<string> errors)
+		{
+			if (layout.Contains(field)) {
+				return true;
+			}
+			if (IsSet(key)) {
+				errors.Add("\"" + key + "\" under [" + Name + "] is set, but \"layout\" doesn't include " + key + ".");
+			}
+			return false;
+		}
+
+		private bool IsSet(string key)
+		{
+			return !string.IsNullOrWhiteSpace(GetString(key, null));
+		}
+
+		private string ReadRequiredValue(string key, List<string> errors)
+		{
+			var value = GetString(key, null);
+			if (string.IsNullOrWhiteSpace(value)) {
+				errors?.Add("\"" + key + "\" under [" + Name + "] must be set.");
+				return string.Empty;
+			}
+			return value.Trim();
+		}
+
+		private void AddInvalidValueError(string key, string value, string requirement, List<string> errors)
+		{
+			errors?.Add("Value \"" + value + "\" for \"" + key + "\" under [" + Name + "] must " + requirement + ".");
+		}
+
+		private int ReadBaudRate(List<string> errors)
+		{
+			var value = ReadRequiredValue("baudrate", errors);
+			if (value.Length == 0) {
+				return 0;
+			}
+			if (!int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var baudRate) || baudRate == 0) {
+				AddInvalidValueError("baudrate", value, "be a positive integer, e.g. \"921600\"", errors);
+				return 0;
+			}
+			return baudRate;
+		}
+
+		private byte ReadPanel(List<string> errors)
+		{
+			var value = ReadRequiredValue("panel", errors);
+			if (value.Length == 0) {
+				return 0;
+			}
+			if (!byte.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var panel)) {
+				AddInvalidValueError("panel", value, "be an integer from 0 to 255", errors);
+				return 0;
+			}
+			return panel;
+		}
+
+		private DeviceNeutralMessageField[] ReadLayout(List<string> errors)
+		{
+			var value = ReadRequiredValue("layout", errors);
+			if (value.Length == 0) {
+				return new DeviceNeutralMessageField[0];
+			}
+			var fields = new List<DeviceNeutralMessageField>();
+			foreach (var token in value.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)) {
+				if (!LayoutFields.TryGetValue(token, out var field) || fields.Contains(field)) {
+					fields.Clear();
+					break;
+				}
+				fields.Add(field);
+			}
+			if (!fields.Contains(DeviceNeutralMessageField.Content)) {
+				AddInvalidValueError("layout", value, "list each of startmarker, length, type, panel, content and endmarker at most once, and must include content", errors);
+				return new DeviceNeutralMessageField[0];
+			}
+			return fields.ToArray();
+		}
+
+		private DeviceNeutralLengthFormat ReadLengthFormat(List<string> errors)
+		{
+			var value = ReadRequiredValue("length", errors);
+			if (value.Length == 0) {
+				return default;
+			}
+			if (!LengthFormats.TryGetValue(value, out var format)) {
+				AddInvalidValueError("length", value, "be one of u32le, u16le or u16be", errors);
+				return default;
+			}
+			return format;
+		}
+
+		private IReadOnlyCollection<DeviceNeutralMessageType> ReadMessages(List<string> errors)
+		{
+			var value = ReadRequiredValue("messages", errors);
+			if (value.Length == 0) {
+				return new DeviceNeutralMessageType[0];
+			}
+			var messages = new List<DeviceNeutralMessageType>();
+			foreach (var token in value.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries)) {
+				if (!MessageNames.TryGetValue(token, out var message) || messages.Contains(message)) {
+					AddInvalidValueError("messages", value, "list each of size, clear, gray2, gray4, gray8 and rgb24 at most once", errors);
+					return new DeviceNeutralMessageType[0];
+				}
+				messages.Add(message);
+			}
+			if (!messages.Intersect(FrameMessages).Any()) {
+				AddInvalidValueError("messages", value, "include at least one of gray2, gray4, gray8 and rgb24", errors);
+				return new DeviceNeutralMessageType[0];
+			}
+			return messages;
+		}
+
+		private IReadOnlyDictionary<DeviceNeutralMessageType, byte> ReadTypeBytes(IReadOnlyCollection<DeviceNeutralMessageType> messages, List<string> errors)
+		{
+			var typeBytes = new Dictionary<DeviceNeutralMessageType, byte>();
+			foreach (var message in MessageNames.Where(m => messages.Contains(m.Value))) {
+				var key = "type." + message.Key;
+				var bytes = ReadHexBytes(key, errors);
+				if (bytes.Length == 0) {
+					continue;
+				}
+				if (bytes.Length != 1) {
+					AddInvalidValueError(key, GetString(key, null), "be a single byte in hex, e.g. \"80\"", errors);
+					continue;
+				}
+				typeBytes[message.Value] = bytes[0];
+			}
+			return typeBytes;
+		}
+
+		private ColorMatrix ReadColorOrder(List<string> errors)
+		{
+			var value = ReadRequiredValue("colororder", errors);
+			if (value.Length == 0) {
+				return default;
+			}
+			if (!ColorOrders.TryGetValue(value, out var colorOrder)) {
+				AddInvalidValueError("colororder", value, "be rgb or rbg", errors);
+				return default;
+			}
+			return colorOrder;
+		}
+
+		private Dimensions ReadFixedSize(List<string> errors)
+		{
+			var value = ReadRequiredValue("fixedsize", errors);
+			if (value.Length == 0 || string.Equals(value, "none", StringComparison.OrdinalIgnoreCase)) {
+				return Dimensions.Dynamic;
+			}
+			var parts = value.Split('x', 'X');
+			if (parts.Length != 2
+			    || !int.TryParse(parts[0].Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var width)
+			    || !int.TryParse(parts[1].Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var height)
+			    || width == 0 || height == 0) {
+				AddInvalidValueError("fixedsize", value, "be none, or a width and height, e.g. \"128x32\"", errors);
+				return Dimensions.Dynamic;
+			}
+			return new Dimensions(width, height);
+		}
+
+		private byte[] ReadConnect(List<string> errors)
+		{
+			var value = ReadRequiredValue("connect", errors);
+			if (value.Length == 0 || string.Equals(value, "none", StringComparison.OrdinalIgnoreCase)) {
+				return new byte[0];
+			}
+			return ReadHexBytes("connect", errors);
+		}
+
+		private byte[] ReadHexBytes(string key, List<string> errors)
+		{
+			var value = ReadRequiredValue(key, errors);
+			if (value.Length == 0) {
+				return new byte[0];
+			}
+			var tokens = value.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+			var bytes = new byte[tokens.Length];
+			for (var i = 0; i < tokens.Length; i++) {
+				if (!byte.TryParse(tokens[i], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out bytes[i])) {
+					AddInvalidValueError(key, value, "be bytes in hex separated by spaces, e.g. \"AA 55\"", errors);
+					return new byte[0];
+				}
+			}
+			return bytes;
 		}
 	}
 
@@ -888,7 +1280,7 @@ namespace LibDmd.DmdDevice
 		}
 	}
 
-	public abstract class AbstractConfiguration
+	public abstract class AbstractConfiguration : IConfigurationSection
 	{
 		public abstract string Name { get; }
 		private readonly IniData _data;
