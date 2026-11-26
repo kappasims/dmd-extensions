@@ -77,12 +77,15 @@ namespace LibDmd.Converter.Vni
 
 		public AbstractConverter LoadPlugin(PluginConfig[] pluginConfigs, bool colorize, string gameName, Color defaultColor, Color[] palette)
 		{
-			if (_altcolorPath == null || pluginConfigs == null) {
+			if (pluginConfigs == null) {
 				return null;
 			}
 
 			if (pluginConfigs.Length == 0) {
 				Logger.Info("[plugin] No colorization plugins configured.");
+
+			} else if (_altcolorPath == null) {
+				Logger.Info("[plugin] No altcolor folder found, loading plugins without one.");
 			}
 
 			// grab the first configured plugin that is active or has passthrough enabled.
