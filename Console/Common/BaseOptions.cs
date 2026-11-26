@@ -1,4 +1,5 @@
-﻿using System.Windows.Media;
+﻿using System.Collections.Generic;
+using System.Windows.Media;
 using CommandLine;
 using LibDmd.Common;
 using LibDmd.DmdDevice;
@@ -163,6 +164,7 @@ namespace DmdExt.Common
 		public IZeDMDWiFiConfig ZeDMDHDWiFi { get; }
 		public IPin2DmdConfig Pin2Dmd { get; }
 		public IPixelcadeConfig Pixelcade { get; }
+		public IReadOnlyList<IDeviceNeutralConfig> DeviceNeutralDestinations { get; }
 		public IVideoConfig Video { get; }
 		public IGifConfig Gif { get; }
 		public IBitmapConfig Bitmap { get; }
@@ -188,6 +190,7 @@ namespace DmdExt.Common
 			ZeDMDHDWiFi = new ZeDMDHDWiFiOptions(this);
 			Pin2Dmd = new Pin2DmdOptions(this);
 			Pixelcade = new PixelcadeOptions(this);
+			DeviceNeutralDestinations = new IDeviceNeutralConfig[0];
 			Video = new VideoOptions();
 			Gif = new GifOptions();
 			Bitmap = new BitmapOptions(this);
