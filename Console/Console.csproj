@@ -160,6 +160,9 @@
     <Reference Include="Mindscape.Raygun4Net4, Version=5.5.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Mindscape.Raygun4Net.5.5.1\lib\net40\Mindscape.Raygun4Net4.dll</HintPath>
     </Reference>
+    <Reference Include="INIFileParser, Version=2.5.2.0, Culture=neutral, PublicKeyToken=79af7b307b65cf3c, processorArchitecture=MSIL">
+      <HintPath>..\packages\ini-parser.2.5.2\lib\net20\INIFileParser.dll</HintPath>
+    </Reference>
     <Reference Include="NLog, Version=5.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c, processorArchitecture=MSIL">
       <HintPath>..\packages\NLog.5.3.4\lib\net46\NLog.dll</HintPath>
     </Reference>
@@ -207,6 +210,14 @@
     <Compile Include="Server\ServerOptions.cs" />
     <Compile Include="Test\TestCommand.cs" />
     <Compile Include="Test\TestOptions.cs" />
+    <Compile Include="Validate\IniDocument.cs" />
+    <Compile Include="Validate\IniIssue.cs" />
+    <Compile Include="Validate\IniReport.cs" />
+    <Compile Include="Validate\IniSchema.cs" />
+    <Compile Include="Validate\IniValidator.cs" />
+    <Compile Include="Validate\TextConfigurationSource.cs" />
+    <Compile Include="Validate\ValidateCommand.cs" />
+    <Compile Include="Validate\ValidateOptions.cs" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Test\TestImage.png" />
